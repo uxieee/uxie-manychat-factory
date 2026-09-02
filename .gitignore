@@ -1,0 +1,10 @@
+node_modules/
+.DS_Store
+docs/superpowers/
+*.local.*
+# Session files never live in the repo (the server reads ~/.uxie-manychat-mcp/session.json).
+session.json
+.manychat/
+# Founder-facing status/handoff notes stay out of the public repo.
+STATUS-*.md
+HANDOFF.md

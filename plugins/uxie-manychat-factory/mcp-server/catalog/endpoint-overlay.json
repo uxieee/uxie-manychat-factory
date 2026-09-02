@@ -1,0 +1,464 @@
+{
+  "_note": "Hand-maintained overlay over the source-mined catalogue (catalog/manychat-endpoints.source.json, 849 typed + 56 legacy requests from ManyChat's public source maps, bundle 490) and the public swagger. Keyed by WIRE IDENTITY 'METHOD /path' (internal) or 'PUBLIC METHOD /path'. `proven: live` = executed on a real account and the response read back (manychat-internal-api-research/knowledge/sniffs/live-*.json, 2026-09-02). Rows absent from the source but proven live (the legacy pre-zod endpoints the builder still calls) are ADDED here with `add:true`. A generator never writes this file.",
+  "rows": {
+    "POST /cms/createFlow": {
+      "proven": "live",
+      "summary": "Create an empty flow; returns flow.ns (content{ts}_{6}).",
+      "coveredBy": [
+        "create_flow",
+        "build_flow"
+      ],
+      "note": "path is '/' or '/{folderId}'"
+    },
+    "GET /cms/getFlows": {
+      "proven": "live",
+      "summary": "List automations with triggers, live status and stats per row.",
+      "coveredBy": [
+        "list_flows"
+      ],
+      "note": "query path=/&field=modified&order=desc; field \u2208 FsQueryOrderField"
+    },
+    "GET /cms/getObject": {
+      "proven": "live",
+      "summary": "One automation's folder/meta by path=/{ns}.",
+      "coveredBy": []
+    },
+    "GET /cms/getFolders": {
+      "proven": "live",
+      "summary": "Automation folders.",
+      "coveredBy": [
+        "list_flows"
+      ]
+    },
+    "GET /cms/getAvailableFilters": {
+      "proven": "live",
+      "summary": "Filter vocabulary for the automations list.",
+      "coveredBy": []
+    },
+    "GET /flow/getFlowData": {
+      "proven": "live",
+      "summary": "Full flow: published contents, draft_batch, draft_coordinates, root, triggers (13 kinds).",
+      "coveredBy": [
+        "get_flow",
+        "publish_flow",
+        "layout_flow"
+      ]
+    },
+    "GET /flow/getData": {
+      "proven": "source",
+      "summary": "Light flow record.",
+      "coveredBy": []
+    },
+    "POST /flow/setDraft": {
+      "proven": "live",
+      "summary": "REPLACE the whole draft; validates nothing (garbage is stored).",
+      "coveredBy": [
+        "set_flow_draft"
+      ]
+    },
+    "POST /flow/patchDraft": {
+      "proven": "live",
+      "summary": "Touch only the contents sent; removed:true deletes.",
+      "coveredBy": [
+        "patch_flow_draft"
+      ]
+    },
+    "POST /flow/discardChanges": {
+      "proven": "live",
+      "summary": "Drop the draft (draft_batch \u2192 null).",
+      "coveredBy": [
+        "discard_flow_changes"
+      ]
+    },
+    "POST /flow/setName": {
+      "proven": "live",
+      "summary": "Rename; blank \u2192 'name cannot be blank.'; >60 silently truncated.",
+      "coveredBy": [
+        "rename_flow"
+      ]
+    },
+    "POST /flow/publish": {
+      "add": true,
+      "instance": "account",
+      "family": "flow",
+      "legacy": true,
+      "proven": "live",
+      "summary": "Validate + publish a batch; upsert by _oid/content_id; ONE content_node_errors entry per call.",
+      "coveredBy": [
+        "publish_flow",
+        "build_flow",
+        "layout_flow"
+      ],
+      "note": "batch.triggers is IGNORED server-side (live-11)"
+    },
+    "POST /flow/setShared": {
+      "proven": "source",
+      "coveredBy": []
+    },
+    "GET /flow/statistics": {
+      "proven": "source",
+      "summary": "Per-node stats for a flow.",
+      "coveredBy": []
+    },
+    "POST /flow/moveTrigger": {
+      "proven": "source",
+      "coveredBy": []
+    },
+    "GET /growth-tools/list": {
+      "add": true,
+      "instance": "account",
+      "family": "growthTools",
+      "legacy": true,
+      "proven": "live",
+      "summary": "All growth-tool widgets (comment triggers etc.).",
+      "coveredBy": [
+        "list_triggers"
+      ]
+    },
+    "POST /growth-tools/createWidget": {
+      "add": true,
+      "instance": "account",
+      "family": "growthTools",
+      "legacy": true,
+      "proven": "live",
+      "summary": "Create a widget \u2014 QUERY params, empty body: widget_type=feed_comment_trigger&ns=&channel=instagram.",
+      "coveredBy": [
+        "create_comment_trigger"
+      ],
+      "note": "without channel=instagram \u2192 'You should connect the Facebook channel\u2026'; server ignores name=, mints its own widget{ts} namespace AND a stray 'Opt-In Message' flow; status starts initial"
+    },
+    "GET /growth-tools/loadWidget": {
+      "add": true,
+      "instance": "account",
+      "family": "growthTools",
+      "legacy": true,
+      "proven": "live",
+      "summary": "Read one widget by widget_id.",
+      "coveredBy": [
+        "create_comment_trigger",
+        "set_trigger_status"
+      ]
+    },
+    "POST /growth-tools/setWidget": {
+      "add": true,
+      "instance": "account",
+      "family": "growthTools",
+      "legacy": true,
+      "proven": "live",
+      "summary": "Save widget settings \u2014 the WHOLE widget object as the body.",
+      "coveredBy": [
+        "create_comment_trigger"
+      ],
+      "note": "status initial \u2192 draft"
+    },
+    "POST /growth-tools/setFlow": {
+      "add": true,
+      "instance": "account",
+      "family": "growthTools",
+      "legacy": true,
+      "proven": "live",
+      "summary": "Attach a widget to a flow {widget_id, flow_ns}.",
+      "coveredBy": [
+        "create_comment_trigger"
+      ]
+    },
+    "POST /growth-tools/setDraftStatus": {
+      "add": true,
+      "instance": "account",
+      "family": "growthTools",
+      "legacy": true,
+      "proven": "live",
+      "summary": "Set widget status {widget_id, status}; active = LIVE on Instagram.",
+      "coveredBy": [
+        "set_trigger_status"
+      ],
+      "kind": "activate",
+      "note": "draft proven; active never exercised here \u2014 user's word required"
+    },
+    "POST /growth-tools/batchCreateOrUpdateWidgets": {
+      "proven": "live",
+      "reach": "refused",
+      "summary": "404 on the studied account (live-06).",
+      "coveredBy": []
+    },
+    "POST /growth-tools/deleteWidget": {
+      "proven": "source",
+      "kind": "destructive",
+      "coveredBy": []
+    },
+    "GET /keywords/list": {
+      "proven": "live",
+      "summary": "DM keyword rules for a channel (channel=instagram&repeatHash=1).",
+      "coveredBy": [
+        "list_triggers"
+      ]
+    },
+    "GET /keywords/get": {
+      "proven": "live",
+      "summary": "One keyword rule by rule_id.",
+      "coveredBy": [
+        "create_dm_keyword",
+        "set_trigger_status"
+      ]
+    },
+    "POST /keywords/createDraft": {
+      "proven": "live",
+      "summary": "Create a DRAFT keyword rule bound to a flow {ns, channel, keyword_rules}.",
+      "coveredBy": [
+        "create_dm_keyword"
+      ],
+      "note": "system keywords \u2192 'Trying to rewrite system keyword rule'; unknown condition \u2192 HTTP 500"
+    },
+    "POST /keywords/update": {
+      "proven": "live",
+      "summary": "Replace a rule (send the full record from get).",
+      "coveredBy": []
+    },
+    "POST /keywords/setStatus": {
+      "proven": "source",
+      "summary": "Set keyword status {rule_id, status}; live = ACTIVE.",
+      "coveredBy": [
+        "set_trigger_status"
+      ],
+      "kind": "activate",
+      "note": "never exercised here \u2014 user's word required"
+    },
+    "POST /keywords/setFlow": {
+      "proven": "source",
+      "coveredBy": []
+    },
+    "GET /keywords/delete": {
+      "proven": "source",
+      "kind": "destructive",
+      "coveredBy": []
+    },
+    "GET /followReply/getData": {
+      "proven": "live",
+      "summary": "Follow-reply (DM on follow) settings.",
+      "coveredBy": []
+    },
+    "GET /tags/list": {
+      "proven": "live",
+      "summary": "User tags (type=user is REQUIRED).",
+      "coveredBy": [
+        "list_tags"
+      ]
+    },
+    "POST /tags/create": {
+      "proven": "live",
+      "summary": "Create a tag {tag_name, path:'/', client_id}; duplicate \u2192 'Tag with the specified name already exists'.",
+      "coveredBy": [
+        "create_tag"
+      ]
+    },
+    "POST /tags/delete": {
+      "proven": "source",
+      "kind": "destructive",
+      "coveredBy": []
+    },
+    "GET /customFields/list": {
+      "proven": "live",
+      "summary": "Contact custom fields.",
+      "coveredBy": [
+        "list_fields"
+      ]
+    },
+    "POST /customFields/create": {
+      "proven": "live",
+      "summary": "Create a contact field {caption, type, description, path:'/'}; type \u2208 text|number|date|datetime|boolean|array.",
+      "coveredBy": [
+        "create_field"
+      ]
+    },
+    "POST /customFields/delete": {
+      "proven": "source",
+      "kind": "destructive",
+      "coveredBy": []
+    },
+    "GET /globalFields/list": {
+      "proven": "live",
+      "summary": "Bot (global) fields with values.",
+      "coveredBy": [
+        "list_bot_fields"
+      ]
+    },
+    "POST /globalFields/create": {
+      "proven": "live",
+      "summary": "Create a bot field {caption, type, description, path}.",
+      "coveredBy": [
+        "create_bot_field"
+      ]
+    },
+    "POST /globalFields/changeValue": {
+      "proven": "live",
+      "summary": "Set a bot field's value {field_id, value}.",
+      "coveredBy": [
+        "set_bot_field_value"
+      ]
+    },
+    "POST /globalFields/delete": {
+      "proven": "source",
+      "kind": "destructive",
+      "coveredBy": []
+    },
+    "GET /subscribers/availableFields": {
+      "proven": "live",
+      "summary": "System + custom field vocabulary for conditions/tokens.",
+      "coveredBy": []
+    },
+    "POST /subscribers/search": {
+      "proven": "live",
+      "summary": "Search contacts {q, filter}.",
+      "coveredBy": []
+    },
+    "GET /subscribers/getAccountUserSubscriber": {
+      "proven": "source",
+      "summary": "The current account user's OWN contact record (if they are a subscriber).",
+      "coveredBy": []
+    },
+    "GET /settings/data": {
+      "proven": "live",
+      "summary": "Account settings incl. the public API key (redacted by the server layer).",
+      "coveredBy": [
+        "auth_status"
+      ]
+    },
+    "GET /settings/getNotifications": {
+      "proven": "live",
+      "coveredBy": []
+    },
+    "GET /im/getLiveChatCounters": {
+      "proven": "live",
+      "coveredBy": []
+    },
+    "GET /automationStarter/list": {
+      "proven": "live",
+      "coveredBy": []
+    },
+    "GET /mainMenu/list": {
+      "proven": "live",
+      "coveredBy": []
+    },
+    "POST /content/createPreview": {
+      "proven": "source",
+      "kind": "activate",
+      "summary": "Sends a PREVIEW to a real Instagram user.",
+      "note": "outward-facing \u2014 user's word required",
+      "coveredBy": []
+    },
+    "POST /followReply/switch": {
+      "proven": "source",
+      "kind": "activate",
+      "note": "outward-facing \u2014 user's word required",
+      "coveredBy": []
+    },
+    "GET /cms/delete": {
+      "proven": "source",
+      "kind": "destructive",
+      "coveredBy": []
+    },
+    "GET /cms/permanentlyDelete": {
+      "proven": "source",
+      "kind": "destructive",
+      "coveredBy": []
+    },
+    "PUBLIC GET /fb/page/getInfo": {
+      "proven": "documented",
+      "coveredBy": [
+        "auth_status"
+      ]
+    },
+    "PUBLIC GET /fb/subscriber/getInfo": {
+      "proven": "documented",
+      "coveredBy": [
+        "get_contact"
+      ]
+    },
+    "PUBLIC GET /fb/subscriber/findByName": {
+      "proven": "documented",
+      "coveredBy": [
+        "find_contact"
+      ]
+    },
+    "PUBLIC GET /fb/subscriber/findBySystemField": {
+      "proven": "documented",
+      "coveredBy": [
+        "find_contact"
+      ]
+    },
+    "PUBLIC GET /fb/subscriber/findByCustomField": {
+      "proven": "documented",
+      "coveredBy": [
+        "find_contact"
+      ]
+    },
+    "PUBLIC POST /fb/subscriber/addTag": {
+      "proven": "documented",
+      "coveredBy": [
+        "tag_contact"
+      ]
+    },
+    "PUBLIC POST /fb/subscriber/addTagByName": {
+      "proven": "documented",
+      "coveredBy": [
+        "tag_contact"
+      ]
+    },
+    "PUBLIC POST /fb/subscriber/removeTag": {
+      "proven": "documented",
+      "coveredBy": [
+        "tag_contact"
+      ]
+    },
+    "PUBLIC POST /fb/subscriber/removeTagByName": {
+      "proven": "documented",
+      "coveredBy": [
+        "tag_contact"
+      ]
+    },
+    "PUBLIC POST /fb/subscriber/setCustomField": {
+      "proven": "documented",
+      "coveredBy": [
+        "set_contact_field"
+      ]
+    },
+    "PUBLIC POST /fb/subscriber/setCustomFieldByName": {
+      "proven": "documented",
+      "coveredBy": [
+        "set_contact_field"
+      ]
+    },
+    "PUBLIC POST /fb/sending/sendFlow": {
+      "proven": "documented",
+      "kind": "activate",
+      "coveredBy": [
+        "send_flow"
+      ],
+      "note": "messages a real contact \u2014 confirm + user's word"
+    },
+    "PUBLIC POST /fb/sending/sendContent": {
+      "proven": "documented",
+      "kind": "activate",
+      "coveredBy": [],
+      "note": "messages a real contact"
+    },
+    "PUBLIC POST /fb/sending/sendContentByUserRef": {
+      "proven": "documented",
+      "kind": "activate",
+      "coveredBy": []
+    },
+    "POST /api/token/generate": {
+      "proven": "live",
+      "summary": "Mint the account's PUBLIC API key (Settings -> API); returns {token}. Replaces an existing key.",
+      "coveredBy": [
+        "create_public_api_key"
+      ],
+      "note": "settings/data's settings.api_key is NOT this key \u2014 the public rail 401s 'Wrong token' for it (differential 2026-09-03). __INIT__ public_api_access_token is null until this is called."
+    },
+    "POST /api/token/delete": {
+      "kind": "destructive",
+      "summary": "Delete the account's public API key.",
+      "note": "never called by this server (no-delete house rule)"
+    }
+  }
+}

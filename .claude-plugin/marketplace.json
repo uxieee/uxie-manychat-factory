@@ -1,0 +1,12 @@
+{
+  "name": "uxieee-manychat",
+  "description": "Xander Roque's ManyChat plugin marketplace.",
+  "owner": { "name": "Xander Roque", "url": "https://github.com/uxieee" },
+  "plugins": [
+    {
+      "name": "uxie-manychat-factory",
+      "source": "./plugins/uxie-manychat-factory",
+      "description": "ManyChat toolkit for Claude Code and Codex: build, publish, lay out and (on your word) activate Instagram automations through ManyChat's own builder API."
+    }
+  ]
+}

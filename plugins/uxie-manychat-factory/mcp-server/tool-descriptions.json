@@ -1,0 +1,162 @@
+{
+  "auth_status": {
+    "description": "Auth status \u2014 proof: live (2026-09-03, session probe + public getInfo); risk: read",
+    "proof": "live (2026-09-03, session probe + public getInfo)",
+    "risk": "read"
+  },
+  "build_flow": {
+    "description": "Build flow \u2014 proof: live (research live-16 build chain; compiler engine-tested); risk: write",
+    "proof": "live (research live-16 build chain; compiler engine-tested)",
+    "risk": "write"
+  },
+  "check_flow": {
+    "description": "Check flow \u2014 proof: engine (ledger from 40-rules.md; every S row live-proven in research); risk: read",
+    "proof": "engine (ledger from 40-rules.md; every S row live-proven in research)",
+    "risk": "read"
+  },
+  "create_bot_field": {
+    "description": "Create bot field \u2014 proof: live (research live-13/16); risk: write",
+    "proof": "live (research live-13/16)",
+    "risk": "write"
+  },
+  "create_comment_trigger": {
+    "description": "Create comment trigger \u2014 proof: live (research live-06/07/16 \u2014 draft only); risk: write",
+    "proof": "live (research live-06/07/16 \u2014 draft only)",
+    "risk": "write"
+  },
+  "create_dm_keyword": {
+    "description": "Create dm keyword \u2014 proof: live (research live-04/16 \u2014 draft only); risk: write",
+    "proof": "live (research live-04/16 \u2014 draft only)",
+    "risk": "write"
+  },
+  "create_field": {
+    "description": "Create field \u2014 proof: live (research live-04); risk: write",
+    "proof": "live (research live-04)",
+    "risk": "write"
+  },
+  "create_flow": {
+    "description": "Create flow \u2014 proof: live (research live-02); risk: write",
+    "proof": "live (research live-02)",
+    "risk": "write"
+  },
+  "create_public_api_key": {
+    "description": "Create public api key \u2014 proof: live (2026-09-03, first mint on the CJ account); risk: write",
+    "proof": "live (2026-09-03, first mint on the CJ account)",
+    "risk": "write"
+  },
+  "create_tag": {
+    "description": "Create tag \u2014 proof: live (research live-04); risk: write",
+    "proof": "live (research live-04)",
+    "risk": "write"
+  },
+  "describe_endpoint": {
+    "description": "Describe endpoint \u2014 proof: engine (catalogue); risk: read",
+    "proof": "engine (catalogue)",
+    "risk": "read"
+  },
+  "discard_flow_changes": {
+    "description": "Discard flow changes \u2014 proof: live (research live-05); risk: write",
+    "proof": "live (research live-05)",
+    "risk": "write"
+  },
+  "find_contact": {
+    "description": "Find contact \u2014 proof: documented (public swagger); not yet executed; risk: read",
+    "proof": "documented (public swagger); not yet executed",
+    "risk": "read"
+  },
+  "get_contact": {
+    "description": "Get contact \u2014 proof: documented (public swagger); not yet executed; risk: read",
+    "proof": "documented (public swagger); not yet executed",
+    "risk": "read"
+  },
+  "get_flow": {
+    "description": "Get flow \u2014 proof: live (research live-01/02; server 2026-09-03); risk: read",
+    "proof": "live (research live-01/02; server 2026-09-03)",
+    "risk": "read"
+  },
+  "layout_flow": {
+    "description": "Layout flow \u2014 proof: live (research live-18/20, 5 flows); risk: write",
+    "proof": "live (research live-18/20, 5 flows)",
+    "risk": "write"
+  },
+  "list_bot_fields": {
+    "description": "List bot fields \u2014 proof: live (research live-13); risk: read",
+    "proof": "live (research live-13)",
+    "risk": "read"
+  },
+  "list_fields": {
+    "description": "List fields \u2014 proof: live (research live-04); risk: read",
+    "proof": "live (research live-04)",
+    "risk": "read"
+  },
+  "list_flows": {
+    "description": "List flows \u2014 proof: live (research live-01; server 2026-09-03); risk: read",
+    "proof": "live (research live-01; server 2026-09-03)",
+    "risk": "read"
+  },
+  "list_tags": {
+    "description": "List tags \u2014 proof: live (research live-04); risk: read",
+    "proof": "live (research live-04)",
+    "risk": "read"
+  },
+  "list_triggers": {
+    "description": "List triggers \u2014 proof: live (research live-06 growth-tools/list, live-04 keywords/list); risk: read",
+    "proof": "live (research live-06 growth-tools/list, live-04 keywords/list)",
+    "risk": "read"
+  },
+  "patch_flow_draft": {
+    "description": "Patch flow draft \u2014 proof: live (research live-05); risk: write",
+    "proof": "live (research live-05)",
+    "risk": "write"
+  },
+  "publish_flow": {
+    "description": "Publish flow \u2014 proof: live (research live-05/08/10/11/12); risk: write",
+    "proof": "live (research live-05/08/10/11/12)",
+    "risk": "write"
+  },
+  "raw_request": {
+    "description": "Raw request \u2014 proof: live for GET on both rails; non-GET is whatever you send; risk: write",
+    "proof": "live for GET on both rails; non-GET is whatever you send",
+    "risk": "write"
+  },
+  "rename_flow": {
+    "description": "Rename flow \u2014 proof: live (research live-05); risk: write",
+    "proof": "live (research live-05)",
+    "risk": "write"
+  },
+  "search_endpoints": {
+    "description": "Search endpoints \u2014 proof: engine (catalogue from bundle-490 source maps + swagger); risk: read",
+    "proof": "engine (catalogue from bundle-490 source maps + swagger)",
+    "risk": "read"
+  },
+  "send_flow": {
+    "description": "Send flow \u2014 proof: documented (public swagger); NEVER EXECUTED \u2014 messages a real contact; risk: activate",
+    "proof": "documented (public swagger); NEVER EXECUTED \u2014 messages a real contact",
+    "risk": "activate"
+  },
+  "set_bot_field_value": {
+    "description": "Set bot field value \u2014 proof: live (research live-16); risk: write",
+    "proof": "live (research live-16)",
+    "risk": "write"
+  },
+  "set_contact_field": {
+    "description": "Set contact field \u2014 proof: documented (public swagger); not yet executed; risk: write",
+    "proof": "documented (public swagger); not yet executed",
+    "risk": "write"
+  },
+  "set_flow_draft": {
+    "description": "Set flow draft \u2014 proof: live (research live-02/03); risk: write",
+    "proof": "live (research live-02/03)",
+    "risk": "write"
+  },
+  "set_trigger_status": {
+    "description": "Set trigger status \u2014 proof: live for draft (research live-06); ACTIVE/LIVE NEVER EXERCISED; risk: activate",
+    "proof": "live for draft (research live-06); ACTIVE/LIVE NEVER EXERCISED",
+    "risk": "activate"
+  },
+  "tag_contact": {
+    "description": "Tag contact \u2014 proof: documented (public swagger); not yet executed; risk: write",
+    "proof": "documented (public swagger); not yet executed",
+    "risk": "write"
+  }
+}

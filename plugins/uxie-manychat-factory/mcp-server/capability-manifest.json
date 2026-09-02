@@ -1,0 +1,464 @@
+[
+  {
+    "tool": "auth_status",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/{accountId}/cms"
+  },
+  {
+    "tool": "auth_status",
+    "rail": "public",
+    "method": "GET",
+    "path": "/fb/page/getInfo"
+  },
+  {
+    "tool": "list_flows",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/cms/getFlows"
+  },
+  {
+    "tool": "list_flows",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/cms/getFolders"
+  },
+  {
+    "tool": "get_flow",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/flow/getFlowData"
+  },
+  {
+    "tool": "create_flow",
+    "rail": "internal",
+    "method": "POST",
+    "path": "/cms/createFlow"
+  },
+  {
+    "tool": "create_flow",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/flow/getFlowData"
+  },
+  {
+    "tool": "set_flow_draft",
+    "rail": "internal",
+    "method": "POST",
+    "path": "/flow/setDraft"
+  },
+  {
+    "tool": "set_flow_draft",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/flow/getFlowData"
+  },
+  {
+    "tool": "patch_flow_draft",
+    "rail": "internal",
+    "method": "POST",
+    "path": "/flow/patchDraft"
+  },
+  {
+    "tool": "patch_flow_draft",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/flow/getFlowData"
+  },
+  {
+    "tool": "check_flow",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/flow/getFlowData"
+  },
+  {
+    "tool": "check_flow",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/tags/list"
+  },
+  {
+    "tool": "check_flow",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/customFields/list"
+  },
+  {
+    "tool": "check_flow",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/globalFields/list"
+  },
+  {
+    "tool": "check_flow",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/growth-tools/list"
+  },
+  {
+    "tool": "check_flow",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/cms/getFlows"
+  },
+  {
+    "tool": "publish_flow",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/flow/getFlowData"
+  },
+  {
+    "tool": "publish_flow",
+    "rail": "internal",
+    "method": "POST",
+    "path": "/flow/publish"
+  },
+  {
+    "tool": "discard_flow_changes",
+    "rail": "internal",
+    "method": "POST",
+    "path": "/flow/discardChanges"
+  },
+  {
+    "tool": "discard_flow_changes",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/flow/getFlowData"
+  },
+  {
+    "tool": "rename_flow",
+    "rail": "internal",
+    "method": "POST",
+    "path": "/flow/setName"
+  },
+  {
+    "tool": "rename_flow",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/flow/getFlowData"
+  },
+  {
+    "tool": "layout_flow",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/flow/getFlowData"
+  },
+  {
+    "tool": "layout_flow",
+    "rail": "internal",
+    "method": "POST",
+    "path": "/flow/publish"
+  },
+  {
+    "tool": "build_flow",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/tags/list"
+  },
+  {
+    "tool": "build_flow",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/customFields/list"
+  },
+  {
+    "tool": "build_flow",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/globalFields/list"
+  },
+  {
+    "tool": "build_flow",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/growth-tools/list"
+  },
+  {
+    "tool": "build_flow",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/cms/getFlows"
+  },
+  {
+    "tool": "build_flow",
+    "rail": "internal",
+    "method": "POST",
+    "path": "/cms/createFlow"
+  },
+  {
+    "tool": "build_flow",
+    "rail": "internal",
+    "method": "POST",
+    "path": "/flow/publish"
+  },
+  {
+    "tool": "build_flow",
+    "rail": "internal",
+    "method": "POST",
+    "path": "/flow/setDraft"
+  },
+  {
+    "tool": "build_flow",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/flow/getFlowData"
+  },
+  {
+    "tool": "list_triggers",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/growth-tools/list"
+  },
+  {
+    "tool": "list_triggers",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/keywords/list"
+  },
+  {
+    "tool": "create_comment_trigger",
+    "rail": "internal",
+    "method": "POST",
+    "path": "/growth-tools/createWidget"
+  },
+  {
+    "tool": "create_comment_trigger",
+    "rail": "internal",
+    "method": "POST",
+    "path": "/growth-tools/setFlow"
+  },
+  {
+    "tool": "create_comment_trigger",
+    "rail": "internal",
+    "method": "POST",
+    "path": "/growth-tools/setWidget"
+  },
+  {
+    "tool": "create_comment_trigger",
+    "rail": "internal",
+    "method": "POST",
+    "path": "/growth-tools/setDraftStatus"
+  },
+  {
+    "tool": "create_comment_trigger",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/growth-tools/loadWidget"
+  },
+  {
+    "tool": "create_comment_trigger",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/flow/getFlowData"
+  },
+  {
+    "tool": "create_dm_keyword",
+    "rail": "internal",
+    "method": "POST",
+    "path": "/keywords/createDraft"
+  },
+  {
+    "tool": "create_dm_keyword",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/keywords/get"
+  },
+  {
+    "tool": "set_trigger_status",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/growth-tools/loadWidget"
+  },
+  {
+    "tool": "set_trigger_status",
+    "rail": "internal",
+    "method": "POST",
+    "path": "/growth-tools/setDraftStatus"
+  },
+  {
+    "tool": "set_trigger_status",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/keywords/get"
+  },
+  {
+    "tool": "set_trigger_status",
+    "rail": "internal",
+    "method": "POST",
+    "path": "/keywords/setStatus"
+  },
+  {
+    "tool": "set_trigger_status",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/flow/getFlowData"
+  },
+  {
+    "tool": "list_tags",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/tags/list"
+  },
+  {
+    "tool": "list_tags",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/growth-tools/list"
+  },
+  {
+    "tool": "create_tag",
+    "rail": "internal",
+    "method": "POST",
+    "path": "/tags/create"
+  },
+  {
+    "tool": "create_tag",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/tags/list"
+  },
+  {
+    "tool": "list_fields",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/customFields/list"
+  },
+  {
+    "tool": "create_field",
+    "rail": "internal",
+    "method": "POST",
+    "path": "/customFields/create"
+  },
+  {
+    "tool": "create_field",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/customFields/list"
+  },
+  {
+    "tool": "list_bot_fields",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/globalFields/list"
+  },
+  {
+    "tool": "create_bot_field",
+    "rail": "internal",
+    "method": "POST",
+    "path": "/globalFields/create"
+  },
+  {
+    "tool": "create_bot_field",
+    "rail": "internal",
+    "method": "POST",
+    "path": "/globalFields/changeValue"
+  },
+  {
+    "tool": "create_bot_field",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/globalFields/list"
+  },
+  {
+    "tool": "set_bot_field_value",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/globalFields/list"
+  },
+  {
+    "tool": "set_bot_field_value",
+    "rail": "internal",
+    "method": "POST",
+    "path": "/globalFields/changeValue"
+  },
+  {
+    "tool": "create_public_api_key",
+    "rail": "internal",
+    "method": "POST",
+    "path": "/api/token/generate"
+  },
+  {
+    "tool": "create_public_api_key",
+    "rail": "public",
+    "method": "GET",
+    "path": "/fb/page/getInfo"
+  },
+  {
+    "tool": "get_contact",
+    "rail": "public",
+    "method": "GET",
+    "path": "/fb/subscriber/getInfo"
+  },
+  {
+    "tool": "find_contact",
+    "rail": "public",
+    "method": "GET",
+    "path": "/fb/subscriber/findByName"
+  },
+  {
+    "tool": "find_contact",
+    "rail": "public",
+    "method": "GET",
+    "path": "/fb/subscriber/findBySystemField"
+  },
+  {
+    "tool": "find_contact",
+    "rail": "public",
+    "method": "GET",
+    "path": "/fb/subscriber/findByCustomField"
+  },
+  {
+    "tool": "tag_contact",
+    "rail": "public",
+    "method": "POST",
+    "path": "/fb/subscriber/addTag"
+  },
+  {
+    "tool": "tag_contact",
+    "rail": "public",
+    "method": "POST",
+    "path": "/fb/subscriber/addTagByName"
+  },
+  {
+    "tool": "tag_contact",
+    "rail": "public",
+    "method": "POST",
+    "path": "/fb/subscriber/removeTag"
+  },
+  {
+    "tool": "tag_contact",
+    "rail": "public",
+    "method": "POST",
+    "path": "/fb/subscriber/removeTagByName"
+  },
+  {
+    "tool": "tag_contact",
+    "rail": "public",
+    "method": "GET",
+    "path": "/fb/subscriber/getInfo"
+  },
+  {
+    "tool": "set_contact_field",
+    "rail": "public",
+    "method": "POST",
+    "path": "/fb/subscriber/setCustomField"
+  },
+  {
+    "tool": "set_contact_field",
+    "rail": "public",
+    "method": "POST",
+    "path": "/fb/subscriber/setCustomFieldByName"
+  },
+  {
+    "tool": "set_contact_field",
+    "rail": "public",
+    "method": "GET",
+    "path": "/fb/subscriber/getInfo"
+  },
+  {
+    "tool": "send_flow",
+    "rail": "public",
+    "method": "POST",
+    "path": "/fb/sending/sendFlow"
+  }
+]
