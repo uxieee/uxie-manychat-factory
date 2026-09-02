@@ -8,6 +8,56 @@ The plugin ships **two manifests over one tree** — `.claude-plugin/plugin.json
 `.codex-plugin/plugin.json` (Codex). Both carry the same version, enforced by
 `scripts/check-manifest-parity.mjs`.
 
+## [0.2.0] — 2026-09-03
+
+Reliability pass. The ledger now refuses anything it knows is wrong, the compiler covers the rest of
+ManyChat's surface, and editing a published flow no longer means hand-writing node JSON.
+
+### Changed
+
+- **The ledger blocks on every rule whose string is known**, not only the server-enforced ones. A
+  builder-only rule still breaks the flow for a human, and sometimes at send time: ManyChat's
+  Instagram text cap of 1000 characters is Meta's own DM limit, and the API stores 1500 without
+  complaint. `allowUiWarnings: true` demotes those rows to warnings — never the server ones — as an
+  explicit per-call choice. Proven live: a 23-character quick-reply caption on an existing flow,
+  previously an advisory note, is now a refusal.
+
+### Added
+
+- **`edit_flow`** — caption-addressed operations on a published flow: `set_text`, `set_caption`,
+  `set_next`, `set_private_reply`, `add`/`set`/`remove_button`, `set_quick_replies`,
+  `add`/`replace`/`remove_block`, `set`/`add`/`remove_action`, `set_conditions`, `set_delay`,
+  `set_split`, `set_goto`, `set_prompt`, `add_node`, `remove_node`, `set_root`. Every op names its
+  node by caption and fails if it does not exist or is the wrong type; all problems are reported at
+  once and nothing is sent; `remove_node` refuses to orphan an edge unless told where to rewire it,
+  never removes the root, and marks `removed:true` rather than dropping the node. The result runs
+  the same ledger, publishes as an upsert and reads back. `relayout:true` re-runs the canvas layout.
+- **`upload_attachment`** — store an image, video, file or gif and get back the object a block or a
+  card image needs.
+- **Condition groups.** `if: {all:[…]}`, `if: {any:[…]}` and one level of nesting
+  (`all:[{any:[a,b]}, c]` → `(a OR b) AND c`), which is exactly what ManyChat's two-level filter can
+  express. A third level is refused by name rather than flattened into a different meaning.
+- **Blocks**: attachment (image/video/file/gif), cards with per-card image, subtitle, tap action and
+  buttons, and dynamic (external content) blocks.
+- **The AI node** (`type: "ai"`), published and read back live.
+- **Every remaining action type** as a typed shorthand — sequences, conversation open/close/assign,
+  opt-in and opt-out per channel, pause and resume, custom events, main menu, and the nine
+  integrations — each carrying the required key ManyChat's own validator demands, with `raw` still
+  available for anything unlisted.
+- **26 new ledger rules** (91 total) covering those shapes: the Instagram block allowlist, card and
+  dynamic requirements, and every action's required subject.
+
+### Discovered by publishing, and now enforced
+
+- **ManyChat will not send an image it did not store.** A URL image is refused with
+  `Attachment without caid` in every shape tried — including the `external_image` form ManyChat's
+  own exporter emits, a `{type,url}` object, and a bare URL. The fix is `upload_attachment` first;
+  the compiler now refuses a URL image at compile time and names the tool.
+- **A dynamic block's `payload` must be a JSON string**, not an object; an object returns
+  `Something went wrong`. Same rule `external_request` already followed.
+- **`/content/upload` wants the file under the field name `0`**, not `file`. Sending `file` returns
+  `Uploaded file is not an image`, which reads like a bad file and is a field-name mismatch.
+
 ## [0.1.0] — 2026-09-03
 
 First release. A ManyChat MCP server, a session-capture command, and an automation skill.

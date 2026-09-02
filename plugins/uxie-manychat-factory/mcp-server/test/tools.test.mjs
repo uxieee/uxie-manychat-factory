@@ -107,3 +107,29 @@ test('field tools hand back the merge tag under a name the secret scrub does not
   assert.equal(r.data.fields[0].mergeTag, '{{cuf_7}}');
   assert.equal(r.data.fields[0].conditionField, 'cuf_7');
 });
+
+test('edit_flow and upload_attachment are registered, declare their rails, and refuse bad input without a call', async () => {
+  const edit = TOOLS.find((t) => t.name === 'edit_flow');
+  const up = TOOLS.find((t) => t.name === 'upload_attachment');
+  assert.ok(edit && up);
+  assert.ok(edit.capabilities.some((c) => c.method === 'POST' && c.path === '/flow/publish'));
+  assert.deepEqual(up.capabilities, [{ rail: 'internal', method: 'POST', path: '/content/upload' }]);
+  const deps = { state: {}, makeGw: () => { throw new Error('must not reach the gateway'); } };
+  const bad = await up.handler({ path: '/tmp/nope.png', type: 'hologram' }, deps);
+  assert.equal(bad.code, CODES.VALIDATION_FAILED);
+  assert.doesNotMatch(JSON.stringify(bad), /hologram/, 'the rejected value is not echoed');
+  const missing = await up.handler({ path: '/definitely/not/here.png', type: 'image' }, deps);
+  assert.equal(missing.code, CODES.VALIDATION_FAILED);
+  assert.match(missing.detail, /cannot read/);
+});
+
+test('edit_flow refuses a flow with nothing published, and never publishes on dryRun', async () => {
+  const calls = [];
+  const flow = { ns: 'content20000101000000_000001', name: 'F', has_published_content: false, has_unpublished_changes: false, root_content_id: null, contents: [], triggers: {} };
+  const gw = { accountId: () => 'fb1', call: async (m, p) => { calls.push(`${m} ${p}`); return { status: 200, json: { state: true, flow } }; } };
+  const edit = TOOLS.find((t) => t.name === 'edit_flow');
+  const r = await edit.handler({ ns: flow.ns, ops: [] }, { state: {}, makeGw: () => gw });
+  assert.equal(r.code, CODES.VALIDATION_FAILED);
+  assert.match(r.detail, /no published content/);
+  assert.ok(!calls.some((c) => c.includes('publish')));
+});

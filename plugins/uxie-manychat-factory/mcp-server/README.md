@@ -11,7 +11,7 @@ source maps (bundle 490, 2026-09-02) and 20 live probe sessions, held in the
 `manychat-internal-api-research` corpus (the source of truth for every wire shape; when a tool
 proves the corpus wrong, the corpus page is corrected in the same change).
 
-**Status: 0.1.0 — 32 tools, both rails LIVE-PROVEN 2026-09-03 through a real stdio session on the
+**Status: 0.2.0 — 34 tools, both rails LIVE-PROVEN 2026-09-03 through a real stdio session on the
 committed bundle against a client account.** Ledger at the bottom.
 
 ## Credential model
@@ -90,7 +90,7 @@ HTML) `UPSTREAM_500` (ManyChat crashed on the input) `RATE_LIMITED` `ACCESS_DENI
 Results and errors are scrubbed for cookies, CSRF tokens, Bearer/API keys and Stripe keys at the
 contract boundary; a tool argument carrying a credential-shaped value is refused without echo.
 
-## Tools (32)
+## Tools (34)
 
 | Tool | Does | Risk |
 |---|---|---|
@@ -101,7 +101,9 @@ contract boundary; a tool argument carrying a credential-shaped value is refused
 | `create_flow` `rename_flow` `discard_flow_changes` | one call + read-back | write |
 | `set_flow_draft` (replace) `patch_flow_draft` (merge) | ledger first, read back `has_unpublished_changes` | write |
 | `publish_flow` | ledger first (every server rule at once, by caption), upsert publish, read-back `verify` | write |
-| `build_flow` | caption-addressed spec → compile → ledger → create → publish/draft → read back | write |
+| `build_flow` | caption-addressed spec → compile → ledger → create → publish/draft → read back. Message, actions, condition (with `all`/`any` groups), delay, split, goto, AI and note nodes; text, question, delay, attachment, cards and dynamic blocks; every ManyChat action type | write |
+| `edit_flow` | caption-addressed OPS on a published flow (set_text, add/set/remove_button, set_next, add_node, remove_node with rewire, set_conditions, …) → same ledger → upsert publish → read back | write |
+| `upload_attachment` | store an image/video/file/gif and return the object a block or card image needs | write |
 | `layout_flow` | BFS canvas layout, republish with coordinates only; refuses duplicate-`_oid` flows | write |
 | `create_comment_trigger` | createWidget → setFlow → setWidget → draft → loadWidget; `post_covered_area` required; returns the stray "Opt-In Message" flow it mints | write (draft) |
 | `create_dm_keyword` | createDraft → get; refuses system keywords, >12 keywords, unknown conditions | write (draft) |
@@ -116,10 +118,16 @@ Nothing deletes. `set_trigger_status` refuses `trash`/`deleted`.
 
 ## The validation ledger
 
-`core/rules.mjs` is the one port of ManyChat's own publish rules (65 rules). Each finding carries
-`layer` (S server / C client-only / S+C), `serverEnforced`, the server's exact string and the
-client's. Server-enforced findings block; client-only ones are warnings the API accepts and the
-builder UI later flags. Full table: `skills/manychat-automation-specialist/references/validation-ledger.md`.
+`core/rules.mjs` is the one port of ManyChat's own publish rules (91 rules). Each finding carries
+`layer` (S server / C builder / S+C), `serverEnforced`, the server's exact string and the builder's.
+
+**Since 0.2.0 any rule with a known string BLOCKS.** A server rule would fail the publish anyway; a
+builder-only rule produces a node ManyChat marks broken and a channel may refuse at send time — its
+Instagram text cap of 1000 is Meta's own DM limit, which the API stores happily. `allowUiWarnings:
+true` demotes the builder-only rows to warnings, never the server ones. Rules never probed on the
+server warn unless the tool refuses them by policy (an action with no subject, a trigger the UI could
+not activate). Full table:
+`skills/manychat-automation-specialist/references/validation-ledger.md`.
 
 ## Live-proof ledger — 2026-09-03, client account, real stdio session on `dist/server.mjs`
 
@@ -151,9 +159,22 @@ EXECUTED → OBSERVED, in order:
     naming the keyword and area; with `confirm` → `active`, verified; back to `draft` on the next
     call, verified. Same for the keyword (`live` → `draft`). Final state: nothing active.
 
-Left in place on the account, named, never deleted: the probe flow `TEST-CAP-MCP-01`, its draft
-comment widget and DM keyword, the stray Opt-In Message flow, one tag and one field value on the
-operator's own test contact, and the minted public API key.
+**0.2.0 additions, live-proven the same day on the same account:** a second probe flow carrying
+cards, an uploaded image, a dynamic block, nested `all`/`any` condition groups and an AI node —
+published, `verify.matches:true`, 15 nodes; `edit_flow` applied five ops (text, a new node, a
+rewired next step, a new button, a rename), verified, and refused a bad edit naming all three
+problems at once with nothing sent; `upload_attachment` stored a PNG and it published both as a
+block and as a card image. Two rules were **discovered by publishing** and are now in the ledger:
+`Attachment without caid` (ManyChat will not send an image it did not store — every URL shape is
+refused, including the `external_image` form its own exporter emits) and a dynamic block's `payload`
+having to be a JSON string rather than an object. One more trap, found the same way:
+`/content/upload` wants the file under the field name `0`, not `file` — sending `file` returns
+`Uploaded file is not an image`, which reads like a bad file and is a field-name mismatch.
+
+Left in place on the account, named, never deleted: the probe flows `TEST-CAP-MCP-01` and
+`TEST-CAP-MCP-02` (the second carries orphan `N` nodes from the shape differentials), the draft
+comment widget and DM keyword, the stray Opt-In Message flow, an uploaded probe image, one tag and
+one field value on the operator's own test contact, and the minted public API key.
 
 ## Development
 

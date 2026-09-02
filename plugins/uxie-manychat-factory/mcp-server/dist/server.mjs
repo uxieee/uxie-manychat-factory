@@ -4719,7 +4719,8 @@ var init_define_ENDPOINT_CATALOG = __esm({
           coveredBy: [
             "list_flows",
             "check_flow",
-            "build_flow"
+            "build_flow",
+            "edit_flow"
           ],
           note: "query path=/&field=modified&order=desc; field \u2208 FsQueryOrderField",
           kind: "read"
@@ -5130,8 +5131,11 @@ var init_define_ENDPOINT_CATALOG = __esm({
             "shared/api/requests/content/index.ts"
           ],
           legacy: false,
-          proven: "source",
-          coveredBy: [],
+          proven: "live",
+          summary: "Upload an image/video/file/gif (multipart); returns {attachment:{caid,title,type}} for an attachment block.",
+          coveredBy: [
+            "upload_attachment"
+          ],
           kind: "write"
         },
         {
@@ -5481,7 +5485,8 @@ var init_define_ENDPOINT_CATALOG = __esm({
             "list_fields",
             "check_flow",
             "build_flow",
-            "create_field"
+            "create_field",
+            "edit_flow"
           ],
           kind: "read"
         },
@@ -6395,7 +6400,8 @@ var init_define_ENDPOINT_CATALOG = __esm({
             "rename_flow",
             "build_flow",
             "create_comment_trigger",
-            "set_trigger_status"
+            "set_trigger_status",
+            "edit_flow"
           ],
           kind: "read"
         },
@@ -6456,7 +6462,8 @@ var init_define_ENDPOINT_CATALOG = __esm({
           coveredBy: [
             "publish_flow",
             "build_flow",
-            "layout_flow"
+            "layout_flow",
+            "edit_flow"
           ],
           kind: "write"
         },
@@ -7041,7 +7048,8 @@ var init_define_ENDPOINT_CATALOG = __esm({
             "check_flow",
             "build_flow",
             "create_bot_field",
-            "set_bot_field_value"
+            "set_bot_field_value",
+            "edit_flow"
           ],
           kind: "read"
         },
@@ -7523,7 +7531,8 @@ var init_define_ENDPOINT_CATALOG = __esm({
             "list_triggers",
             "check_flow",
             "build_flow",
-            "list_tags"
+            "list_tags",
+            "edit_flow"
           ],
           kind: "read"
         },
@@ -13059,7 +13068,8 @@ var init_define_ENDPOINT_CATALOG = __esm({
             "list_tags",
             "check_flow",
             "build_flow",
-            "create_tag"
+            "create_tag",
+            "edit_flow"
           ],
           kind: "read"
         },
@@ -16327,8 +16337,8 @@ var init_define_TOOL_CATALOG = __esm({
         risk: "read"
       },
       build_flow: {
-        description: "Build flow \u2014 proof: live (research live-16 build chain; compiler engine-tested); risk: write",
-        proof: "live (research live-16 build chain; compiler engine-tested)",
+        description: "Build flow \u2014 proof: live (2026-09-03: cards, uploaded image, dynamic block, nested condition groups and an AI node all published and read back); risk: write",
+        proof: "live (2026-09-03: cards, uploaded image, dynamic block, nested condition groups and an AI node all published and read back)",
         risk: "write"
       },
       check_flow: {
@@ -16379,6 +16389,11 @@ var init_define_TOOL_CATALOG = __esm({
       discard_flow_changes: {
         description: "Discard flow changes \u2014 proof: live (research live-05); risk: write",
         proof: "live (research live-05)",
+        risk: "write"
+      },
+      edit_flow: {
+        description: "Edit flow \u2014 proof: live (2026-09-03, applied + verified on a published flow); risk: write",
+        proof: "live (2026-09-03, applied + verified on a published flow)",
         risk: "write"
       },
       find_contact: {
@@ -16479,6 +16494,11 @@ var init_define_TOOL_CATALOG = __esm({
       tag_contact: {
         description: "Tag contact \u2014 proof: documented (public swagger); not yet executed; risk: write",
         proof: "documented (public swagger); not yet executed",
+        risk: "write"
+      },
+      upload_attachment: {
+        description: "Upload attachment \u2014 proof: live (2026-09-03, image stored and published in a block and a card); risk: write",
+        proof: "live (2026-09-03, image stored and published in a block and a card)",
         risk: "write"
       }
     };
@@ -18763,26 +18783,26 @@ var require_resolve = __commonJS({
         addAnchor.call(this, sch.$anchor);
         addAnchor.call(this, sch.$dynamicAnchor);
         baseIds[jsonPtr] = innerBaseId;
-        function addRef(ref2) {
+        function addRef(ref) {
           const _resolve = this.opts.uriResolver.resolve;
-          ref2 = normalizeId(innerBaseId ? _resolve(innerBaseId, ref2) : ref2);
-          if (schemaRefs.has(ref2))
-            throw ambiguos(ref2);
-          schemaRefs.add(ref2);
-          let schOrRef = this.refs[ref2];
+          ref = normalizeId(innerBaseId ? _resolve(innerBaseId, ref) : ref);
+          if (schemaRefs.has(ref))
+            throw ambiguos(ref);
+          schemaRefs.add(ref);
+          let schOrRef = this.refs[ref];
           if (typeof schOrRef == "string")
             schOrRef = this.refs[schOrRef];
           if (typeof schOrRef == "object") {
-            checkAmbiguosRef(sch, schOrRef.schema, ref2);
-          } else if (ref2 !== normalizeId(fullPath)) {
-            if (ref2[0] === "#") {
-              checkAmbiguosRef(sch, localRefs[ref2], ref2);
-              localRefs[ref2] = sch;
+            checkAmbiguosRef(sch, schOrRef.schema, ref);
+          } else if (ref !== normalizeId(fullPath)) {
+            if (ref[0] === "#") {
+              checkAmbiguosRef(sch, localRefs[ref], ref);
+              localRefs[ref] = sch;
             } else {
-              this.refs[ref2] = fullPath;
+              this.refs[ref] = fullPath;
             }
           }
-          return ref2;
+          return ref;
         }
         function addAnchor(anchor2) {
           if (typeof anchor2 == "string") {
@@ -18793,12 +18813,12 @@ var require_resolve = __commonJS({
         }
       });
       return localRefs;
-      function checkAmbiguosRef(sch1, sch2, ref2) {
+      function checkAmbiguosRef(sch1, sch2, ref) {
         if (sch2 !== void 0 && !equal(sch1, sch2))
-          throw ambiguos(ref2);
+          throw ambiguos(ref);
       }
-      function ambiguos(ref2) {
-        return new Error(`reference "${ref2}" resolves to more than one schema`);
+      function ambiguos(ref) {
+        return new Error(`reference "${ref}" resolves to more than one schema`);
       }
     }
     exports.getSchemaRefs = getSchemaRefs;
@@ -19342,9 +19362,9 @@ var require_ref_error = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     var resolve_1 = require_resolve();
     var MissingRefError = class extends Error {
-      constructor(resolver, baseId, ref2, msg) {
-        super(msg || `can't resolve reference ${ref2} from id ${baseId}`);
-        this.missingRef = (0, resolve_1.resolveUrl)(resolver, baseId, ref2);
+      constructor(resolver, baseId, ref, msg) {
+        super(msg || `can't resolve reference ${ref} from id ${baseId}`);
+        this.missingRef = (0, resolve_1.resolveUrl)(resolver, baseId, ref);
         this.missingSchema = (0, resolve_1.normalizeId)((0, resolve_1.getFullPath)(resolver, this.missingRef));
       }
     };
@@ -19472,22 +19492,22 @@ var require_compile = __commonJS({
       }
     }
     exports.compileSchema = compileSchema;
-    function resolveRef2(root, baseId, ref2) {
+    function resolveRef2(root, baseId, ref) {
       var _a3;
-      ref2 = (0, resolve_1.resolveUrl)(this.opts.uriResolver, baseId, ref2);
-      const schOrFunc = root.refs[ref2];
+      ref = (0, resolve_1.resolveUrl)(this.opts.uriResolver, baseId, ref);
+      const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve4.call(this, root, ref2);
+      let _sch = resolve4.call(this, root, ref);
       if (_sch === void 0) {
-        const schema2 = (_a3 = root.localRefs) === null || _a3 === void 0 ? void 0 : _a3[ref2];
+        const schema2 = (_a3 = root.localRefs) === null || _a3 === void 0 ? void 0 : _a3[ref];
         const { schemaId } = this.opts;
         if (schema2)
           _sch = new SchemaEnv({ schema: schema2, schemaId, root, baseId });
       }
       if (_sch === void 0)
         return;
-      return root.refs[ref2] = inlineOrCompile.call(this, _sch);
+      return root.refs[ref] = inlineOrCompile.call(this, _sch);
     }
     exports.resolveRef = resolveRef2;
     function inlineOrCompile(sch) {
@@ -19505,14 +19525,14 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve4(root, ref2) {
+    function resolve4(root, ref) {
       let sch;
-      while (typeof (sch = this.refs[ref2]) == "string")
-        ref2 = sch;
-      return sch || this.schemas[ref2] || resolveSchema.call(this, root, ref2);
+      while (typeof (sch = this.refs[ref]) == "string")
+        ref = sch;
+      return sch || this.schemas[ref] || resolveSchema.call(this, root, ref);
     }
-    function resolveSchema(root, ref2) {
-      const p = this.opts.uriResolver.parse(ref2);
+    function resolveSchema(root, ref) {
+      const p = this.opts.uriResolver.parse(ref);
       const refPath = (0, resolve_1._getFullPath)(this.opts.uriResolver, p);
       let baseId = (0, resolve_1.getFullPath)(this.opts.uriResolver, root.baseId, void 0);
       if (Object.keys(root.schema).length > 0 && refPath === baseId) {
@@ -19530,7 +19550,7 @@ var require_compile = __commonJS({
         return;
       if (!schOrRef.validate)
         compileSchema.call(this, schOrRef);
-      if (id === (0, resolve_1.normalizeId)(ref2)) {
+      if (id === (0, resolve_1.normalizeId)(ref)) {
         const { schema: schema2 } = schOrRef;
         const { schemaId } = this.opts;
         const schId = schema2[schemaId];
@@ -20936,26 +20956,26 @@ var require_core = __commonJS({
             return _compileAsync.call(this, sch);
           }
         }
-        function checkLoaded({ missingSchema: ref2, missingRef }) {
-          if (this.refs[ref2]) {
-            throw new Error(`AnySchema ${ref2} is loaded but ${missingRef} cannot be resolved`);
+        function checkLoaded({ missingSchema: ref, missingRef }) {
+          if (this.refs[ref]) {
+            throw new Error(`AnySchema ${ref} is loaded but ${missingRef} cannot be resolved`);
           }
         }
-        async function loadMissingSchema(ref2) {
-          const _schema = await _loadSchema.call(this, ref2);
-          if (!this.refs[ref2])
+        async function loadMissingSchema(ref) {
+          const _schema = await _loadSchema.call(this, ref);
+          if (!this.refs[ref])
             await loadMetaSchema.call(this, _schema.$schema);
-          if (!this.refs[ref2])
-            this.addSchema(_schema, ref2, meta3);
+          if (!this.refs[ref])
+            this.addSchema(_schema, ref, meta3);
         }
-        async function _loadSchema(ref2) {
-          const p = this._loading[ref2];
+        async function _loadSchema(ref) {
+          const p = this._loading[ref];
           if (p)
             return p;
           try {
-            return await (this._loading[ref2] = loadSchema(ref2));
+            return await (this._loading[ref] = loadSchema(ref));
           } finally {
-            delete this._loading[ref2];
+            delete this._loading[ref];
           }
         }
       }
@@ -23192,12 +23212,12 @@ var require_discriminator = __commonJS({
           for (let i = 0; i < oneOf.length; i++) {
             let sch = oneOf[i];
             if ((sch === null || sch === void 0 ? void 0 : sch.$ref) && !(0, util_1.schemaHasRulesButRef)(sch, it.self.RULES)) {
-              const ref2 = sch.$ref;
-              sch = compile_1.resolveRef.call(it.self, it.schemaEnv.root, it.baseId, ref2);
+              const ref = sch.$ref;
+              sch = compile_1.resolveRef.call(it.self, it.schemaEnv.root, it.baseId, ref);
               if (sch instanceof compile_1.SchemaEnv)
                 sch = sch.schema;
               if (sch === void 0)
-                throw new ref_error_1.default(it.opts.uriResolver, it.baseId, ref2);
+                throw new ref_error_1.default(it.opts.uriResolver, it.baseId, ref);
             }
             const propSch = (_a3 = sch === null || sch === void 0 ? void 0 : sch.properties) === null || _a3 === void 0 ? void 0 : _a3[tagName];
             if (typeof propSch != "object") {
@@ -42886,7 +42906,7 @@ function extractDefs(ctx, schema2) {
       return;
     }
     const seen = entry[1];
-    const { ref: ref2, defId } = makeURI(entry);
+    const { ref, defId } = makeURI(entry);
     seen.def = { ...seen.schema };
     if (defId)
       seen.defId = defId;
@@ -42894,7 +42914,7 @@ function extractDefs(ctx, schema2) {
     for (const key in schema3) {
       delete schema3[key];
     }
-    schema3.$ref = ref2;
+    schema3.$ref = ref;
   };
   if (ctx.cycles === "throw") {
     for (const entry of ctx.seen.entries()) {
@@ -43056,11 +43076,11 @@ function finalize(ctx, schema2) {
       return;
     const schema3 = seen.def ?? seen.schema;
     const _cached = { ...schema3 };
-    const ref2 = seen.ref;
+    const ref = seen.ref;
     seen.ref = null;
-    if (ref2) {
-      flattenRef(ref2);
-      const refSeen = ctx.seen.get(ref2);
+    if (ref) {
+      flattenRef(ref);
+      const refSeen = ctx.seen.get(ref);
       const refSchema = refSeen.schema;
       if (refSchema.$ref && (ctx.target === "draft-07" || ctx.target === "draft-04" || ctx.target === "openapi-3.0")) {
         schema3.allOf = schema3.allOf ?? [];
@@ -43069,7 +43089,7 @@ function finalize(ctx, schema2) {
         assignProps(schema3, refSchema);
       }
       assignProps(schema3, _cached);
-      const isParentRef = zodSchema._zod.parent === ref2;
+      const isParentRef = zodSchema._zod.parent === ref;
       if (isParentRef) {
         for (const key in schema3) {
           if (key === "$ref" || key === "allOf")
@@ -43090,7 +43110,7 @@ function finalize(ctx, schema2) {
       }
     }
     const parent = zodSchema._zod.parent;
-    if (parent && parent !== ref2) {
+    if (parent && parent !== ref) {
       flattenRef(parent);
       const parentSeen = ctx.seen.get(parent);
       if (parentSeen?.schema.$ref) {
@@ -46516,11 +46536,11 @@ function applyMinItems(items, minItems) {
 function decodeJSONPointerSegment(segment) {
   return segment.replace(/~1/g, "/").replace(/~0/g, "~");
 }
-function resolveRef(ref2, ctx) {
-  if (!ref2.startsWith("#")) {
+function resolveRef(ref, ctx) {
+  if (!ref.startsWith("#")) {
     throw new Error("External $ref is not supported, only local refs (#/...) are allowed");
   }
-  const path = ref2.slice(1).split("/").filter(Boolean);
+  const path = ref.slice(1).split("/").filter(Boolean);
   if (path.length === 0) {
     return ctx.rootSchema;
   }
@@ -46528,11 +46548,11 @@ function resolveRef(ref2, ctx) {
   if (path[0] === defsKey) {
     const key = path[1] === void 0 ? void 0 : decodeJSONPointerSegment(path[1]);
     if (!key || !ctx.defs[key]) {
-      throw new Error(`Reference not found: ${ref2}`);
+      throw new Error(`Reference not found: ${ref}`);
     }
     return ctx.defs[key];
   }
-  throw new Error(`Reference not found: ${ref2}`);
+  throw new Error(`Reference not found: ${ref}`);
 }
 function checkPropertyNames(objectSchema, keySchema) {
   const guard2 = z.transform((value) => value).check((payload) => {
@@ -51996,13 +52016,13 @@ var McpServer = class {
     });
     this._completionHandlerInitialized = true;
   }
-  async handlePromptCompletion(request, ref2) {
-    const prompt = this._registeredPrompts[ref2.name];
+  async handlePromptCompletion(request, ref) {
+    const prompt = this._registeredPrompts[ref.name];
     if (!prompt) {
-      throw new McpError(ErrorCode.InvalidParams, `Prompt ${ref2.name} not found`);
+      throw new McpError(ErrorCode.InvalidParams, `Prompt ${ref.name} not found`);
     }
     if (!prompt.enabled) {
-      throw new McpError(ErrorCode.InvalidParams, `Prompt ${ref2.name} disabled`);
+      throw new McpError(ErrorCode.InvalidParams, `Prompt ${ref.name} disabled`);
     }
     if (!prompt.argsSchema) {
       return EMPTY_COMPLETION_RESULT;
@@ -52019,10 +52039,10 @@ var McpServer = class {
     const suggestions = await completer(request.params.argument.value, request.params.context);
     return createCompletionResult(suggestions);
   }
-  async handleResourceCompletion(request, ref2) {
-    const template = Object.values(this._registeredResourceTemplates).find((t) => t.resourceTemplate.uriTemplate.toString() === ref2.uri);
+  async handleResourceCompletion(request, ref) {
+    const template = Object.values(this._registeredResourceTemplates).find((t) => t.resourceTemplate.uriTemplate.toString() === ref.uri);
     if (!template) {
-      if (this._registeredResources[ref2.uri]) {
+      if (this._registeredResources[ref.uri]) {
         return EMPTY_COMPLETION_RESULT;
       }
       throw new McpError(ErrorCode.InvalidParams, `Resource template ${request.params.ref.uri} not found`);
@@ -52651,6 +52671,7 @@ import { dirname as dirname4, resolve as resolve3 } from "node:path";
 // core/tools.mjs
 init_define_ENDPOINT_CATALOG();
 init_define_TOOL_CATALOG();
+import { readFileSync as readFileSync3 } from "node:fs";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 import { dirname as dirname3, resolve as resolve2 } from "node:path";
 
@@ -53002,7 +53023,10 @@ function makeInternalGateway({ sessionFile, accountId = null, fetchImpl = fetch,
     const h = headers(body !== void 0);
     let payload;
     if (body !== void 0) {
-      if (form) {
+      if (body instanceof FormData) {
+        delete h["content-type"];
+        payload = body;
+      } else if (form) {
         h["content-type"] = "application/x-www-form-urlencoded";
         payload = new URLSearchParams(body).toString();
       } else payload = JSON.stringify(body);
@@ -53081,6 +53105,10 @@ var ANSWER_TYPES = ["text", "number", "first_name", "last_name", "email", "phone
 var SYSTEM_FIELDS = ["first_name", "last_name", "full_name", "email", "phone", "subscribed", "user_id", "locale", "language", "timezone", "last_interaction", "last_ig_interaction", "ig_window_open_until", "last_wa_interaction", "last_tg_interaction", "last_seen", "last_ig_seen", "last_wa_seen", "messaging_window", "ig_messaging_window", "gender", "ig_followers_count", "tg_user_id", "ig_username", "tg_username", "wa_id", "phone_country_code", "phone_us_state", "optin_phone", "optout_phone", "optin_email", "optout_email", "messenger", "is_eu_affected", "optin_instagram", "is_ig_account_follower", "is_ig_verified_user", "is_ig_account_follow_user", "is_ig_window_open", "optin_telegram", "optin_whatsapp"];
 var STATIC_FIELDS = ["tag", "widget", "ads_growth_tool", "opt_in_through_api", "one_time_notification", "one_time_notification_optin", "sequence", "system_current_datetime", "smart_segment"];
 var DELAY_UNITS = ["minutes", "hours", "days"];
+var IG_ALLOWED_BLOCKS = ["text", "attachment", "quick_reply", "question", "delay", "card", "cards", "dynamic", "otn_request"];
+var ATTACHMENT_TYPES = ["image", "video", "file", "gif", "external_image"];
+var DYNAMIC_METHODS = ["get", "post", "put", "delete"];
+var INTEGRATION_ACTIONS = ["hubspot", "convertkit", "chatgpt", "claude", "deepseek", "google_sheets", "active_campaign", "klaviyo", "mailchimp"];
 var NOTE_FONT_SIZES = ["small", "large"];
 var NOTE_SIZES = ["small", "medium", "large"];
 var NOTE_COLORS = ["default", "white", "danger", "success", "info"];
@@ -53157,19 +53185,51 @@ var RULES = Object.freeze({
   KEYWORD_REQUIRED: { layer: "C", serverEnforced: false, clientMessage: "Please provide a keyword.", note: "server accepted an empty list (live-04)" },
   KEYWORDS_MAX_12: { layer: "C", serverEnforced: false, clientMessage: "No more than 12 keywords per rule", note: "server accepted 13 (live-04)", toolBlocks: true },
   KEYWORD_RULES_MAX_5: { layer: "C", serverEnforced: false, clientMessage: "No more than 5 rules per keyword trigger" },
-  KEYWORD_CHANNEL_UNKNOWN: { layer: "C", serverEnforced: false, clientMessage: "channel must be instagram, facebook, whatsapp, telegram, tiktok or sms", toolBlocks: true }
+  KEYWORD_CHANNEL_UNKNOWN: { layer: "C", serverEnforced: false, clientMessage: "channel must be instagram, facebook, whatsapp, telegram, tiktok or sms", toolBlocks: true },
+  // Actions — required fields, client strings from common/actions/constants/Validation.js. The
+  // server side of these was not probed (an action missing its key was never published); the tool
+  // blocks them anyway because an action without its subject cannot do anything.
+  ACTION_TAG_REQUIRED: { layer: "C", serverEnforced: null, clientMessage: "Please select or create a tag", toolBlocks: true },
+  ACTION_SEQUENCE_REQUIRED: { layer: "C", serverEnforced: null, clientMessage: "Please select a sequence", toolBlocks: true },
+  ACTION_FIELD_REQUIRED: { layer: "C", serverEnforced: null, clientMessage: "Please select a custom user field to set", toolBlocks: true },
+  ACTION_FIELD_VALUE_REQUIRED: { layer: "C", serverEnforced: null, clientMessage: "Please enter a value for the custom user field", toolBlocks: true, note: "the UI string is a translation key; the server accepts an empty value (it stores it)" },
+  ACTION_UNSET_FIELD_REQUIRED: { layer: "C", serverEnforced: null, clientMessage: "Please select a custom user field to unset", toolBlocks: true },
+  ACTION_START_FLOW_REQUIRED: { layer: "C", serverEnforced: null, clientMessage: "Please select Automation", toolBlocks: true },
+  ACTION_ASSIGN_REQUIRED: { layer: "C", serverEnforced: null, clientMessage: "Please choose a team member", toolBlocks: true },
+  ACTION_MAIN_MENU_REQUIRED: { layer: "C", serverEnforced: null, clientMessage: "Please select a Main Menu", toolBlocks: true },
+  ACTION_PAUSE_DURATION_REQUIRED: { layer: "C", serverEnforced: null, clientMessage: "Please enter a pause duration", toolBlocks: true },
+  ACTION_EVENT_REQUIRED: { layer: "C", serverEnforced: null, clientMessage: "Please enter a Conversion Event name", toolBlocks: true },
+  ACTION_INTEGRATION_ACTION_REQUIRED: { layer: "C", serverEnforced: null, clientMessage: "Please select an integration action", toolBlocks: true, note: "every integration action (hubspot, convertkit, chatgpt, claude, deepseek, google_sheets, active_campaign, klaviyo, mailchimp) carries `action` + `data`" },
+  ACTION_CUSTOM_AUDIENCE_REQUIRED: { layer: "C", serverEnforced: null, clientMessage: "Please set up the custom audience action (ad account, audience, action)", toolBlocks: true },
+  ACTION_NOTIFY_TEXT_REQUIRED: { layer: "C", serverEnforced: null, clientMessage: "Notify admin needs a message text", toolBlocks: true },
+  // Blocks
+  IG_BLOCK_NOT_ALLOWED: { layer: "C", serverEnforced: null, clientMessage: "This block is not available on the Instagram channel", toolBlocks: true, note: "InstagramNodeConfig allows text, attachment, quick_reply, question, delay, card, cards, dynamic, otn_request" },
+  ATTACHMENT_TYPE_INVALID: { layer: "C", serverEnforced: null, clientMessage: "attachment content.type must be image, video, file, gif or external_image", toolBlocks: true },
+  ATTACHMENT_NEEDS_CAID: { layer: "S", serverEnforced: true, serverMessage: "Attachment without caid", note: "PROVEN 2026-09-03: an image ManyChat did not store is refused \u2014 the external_image shape its own exporter emits, a {type,url} object and a bare URL all fail. Upload it first (upload_attachment -> POST /content/upload) and pass the returned object, which carries caid." },
+  DYNAMIC_PAYLOAD_NOT_STRING: { layer: "S", serverEnforced: true, serverMessage: "Something went wrong", note: "PROVEN 2026-09-03: a dynamic block whose payload is an OBJECT fails; a JSON STRING or null is accepted. Same rule as external_request." },
+  ATTACHMENT_URL_REQUIRED: { layer: "C", serverEnforced: null, clientMessage: "Please specify image URL", toolBlocks: true, note: "external_image needs content.data.url; uploaded types need the object /content/upload returned" },
+  CARDS_EMPTY: { layer: "C", serverEnforced: null, clientMessage: "Please create at least one card", toolBlocks: true },
+  CARD_TITLE_REQUIRED: { layer: "C", serverEnforced: null, clientMessage: "Please enter a title", toolBlocks: true },
+  CARD_TITLE_OVER_80: { layer: "C", serverEnforced: null, clientMessage: "Title must be less than 80 characters long" },
+  CARD_SUBTITLE_OVER_80: { layer: "C", serverEnforced: null, clientMessage: "Subtitle must be less than 80 characters long" },
+  CARDS_MAX_10: { layer: "C", serverEnforced: null, clientMessage: "You can add only 10 cards", toolBlocks: true },
+  DYNAMIC_URL_REQUIRED: { layer: "C", serverEnforced: null, clientMessage: "Please enter a request URL", toolBlocks: true },
+  DYNAMIC_METHOD_INVALID: { layer: "C", serverEnforced: null, clientMessage: "method must be get, post, put or delete", toolBlocks: true, note: "RequestMethodSchema in shared/api/requests/content/schemas.ts" },
+  AI_NODE_PROMPT_REQUIRED: { layer: "C", serverEnforced: null, clientMessage: "Please enter a prompt for the AI step", toolBlocks: true }
 });
 var fill = (tpl, vars) => String(tpl ?? "").replace(/\{(\w+)\}/g, (_, k) => String(vars?.[k] ?? `{${k}}`));
 var Findings = class {
-  constructor() {
+  constructor({ allowUiWarnings = false } = {}) {
     this.list = [];
+    this.allowUiWarnings = allowUiWarnings;
   }
   add(ruleId, where = {}, vars = {}) {
     const r = RULES[ruleId];
     if (!r) throw new Error(`unknown rule ${ruleId}`);
     const serverMessage = r.serverMessage ? fill(r.serverMessage, vars) : null;
     const clientMessage = r.clientMessage ? fill(r.clientMessage, vars) : null;
-    const blocking = r.serverEnforced === true || r.toolBlocks === true;
+    const clientOnly = r.serverEnforced === false;
+    const blocking = r.serverEnforced === true || r.toolBlocks === true || clientOnly && !this.allowUiWarnings;
     this.list.push({
       rule: ruleId,
       layer: r.layer,
@@ -53192,7 +53252,7 @@ var Findings = class {
       blocking,
       warnings,
       count: this.list.length,
-      meaning: blocking.length ? "blocking = the server would refuse this (or the tool refuses it by policy); the message is what the server returns. Fix these before sending." : warnings.length ? "warnings = client-only rules the server ACCEPTS; the flow will publish but the builder UI will flag these nodes." : "clean against every rule in the ledger \u2014 a 200 from publish still only proves what the server enforces (see serverEnforced per rule)."
+      meaning: blocking.length ? "blocking = a rule with a KNOWN string failed: serverEnforced:true means the server would refuse the publish with exactly that message; serverEnforced:false means ManyChat's API accepts it but its builder marks the node broken (and the channel may refuse it at send time), so the tool refuses it too unless allowUiWarnings:true. Fix these before sending." : warnings.length ? "warnings = rules the corpus has not probed on the server (serverEnforced:null), or client-only rules you demoted with allowUiWarnings. The publish will go through; read them." : "clean against every rule in the ledger \u2014 a 200 from publish still only proves what the server enforces (see serverEnforced per rule)."
     };
   }
 };
@@ -53206,8 +53266,8 @@ var isUrl = (s) => {
 };
 var targetOid = (t) => t && typeof t === "object" ? t._content_oid ?? null : null;
 var hasContentId = (t) => t && typeof t === "object" && t.content_id != null;
-function validateBatch({ contents, rootContent, context = {} }) {
-  const F = new Findings();
+function validateBatch({ contents, rootContent, context = {}, allowUiWarnings = false }) {
+  const F = new Findings({ allowUiWarnings });
   const list = Array.isArray(contents) ? contents : [];
   const oids = /* @__PURE__ */ new Map();
   for (const c of list) {
@@ -53252,6 +53312,36 @@ function validateBatch({ contents, rootContent, context = {} }) {
         if (!m || !MESSAGE_TYPES.includes(m.type)) {
           F.add("MESSAGE_TYPE_UNKNOWN", mw, { detail: `block type "${m?.type}"` });
           return;
+        }
+        if (c.type === "instagram" && !IG_ALLOWED_BLOCKS.includes(m.type)) F.add("IG_BLOCK_NOT_ALLOWED", mw, { detail: `block type "${m.type}"` });
+        if (m.type === "attachment") {
+          const t = m.content?.type;
+          if (!ATTACHMENT_TYPES.includes(t)) F.add("ATTACHMENT_TYPE_INVALID", mw, { detail: `content.type "${t}"` });
+          else if (!m.content?.data) F.add("ATTACHMENT_URL_REQUIRED", mw);
+          else if (m.content.data.caid == null) F.add("ATTACHMENT_NEEDS_CAID", mw, { detail: t === "external_image" ? "external_image carries a url but no caid" : "the attachment data has no caid" });
+          (m.keyboard ?? []).forEach((b, j) => checkButton(b, { ...mw, button: j }));
+        }
+        if (m.type === "cards") {
+          const els = Array.isArray(m.elements) ? m.elements : [];
+          if (!els.length) F.add("CARDS_EMPTY", mw);
+          if (els.length > 10) F.add("CARDS_MAX_10", mw, { detail: `${els.length} cards` });
+          els.forEach((card, k) => {
+            const cw = { ...mw, card: k };
+            const title = String(card?.content?.title ?? "");
+            if (!title.trim()) F.add("CARD_TITLE_REQUIRED", cw);
+            else if (title.length > 80) F.add("CARD_TITLE_OVER_80", cw, { detail: `${title.length} chars` });
+            if (String(card?.content?.subtitle ?? "").length > 80) F.add("CARD_SUBTITLE_OVER_80", cw);
+            if (card?.content?.image && card.content.image.caid == null) F.add("ATTACHMENT_NEEDS_CAID", cw, { detail: "a card image must be the object upload_attachment returned (it carries caid)" });
+            const kb = Array.isArray(card?.keyboard) ? card.keyboard : [];
+            if (kb.length > 3) F.add("BUTTONS_MAX_3", cw, { detail: `${kb.length} buttons` });
+            kb.forEach((b, j) => checkButton(b, { ...cw, button: j }));
+          });
+        }
+        if (m.type === "dynamic") {
+          if (!String(m.url ?? "").trim()) F.add("DYNAMIC_URL_REQUIRED", mw);
+          if (!DYNAMIC_METHODS.includes(String(m.method ?? "").toLowerCase())) F.add("DYNAMIC_METHOD_INVALID", mw, { detail: `method "${m.method}"` });
+          if (m.payload != null && typeof m.payload !== "string") F.add("DYNAMIC_PAYLOAD_NOT_STRING", mw, { detail: `payload is a ${Array.isArray(m.payload) ? "array" : typeof m.payload}` });
+          if (m.fallback) checkTarget(m.fallback, { ...mw, key: "fallback" });
         }
         if (m.type === "delay") {
           delayRun++;
@@ -53307,6 +53397,19 @@ function validateBatch({ contents, rootContent, context = {} }) {
           F.add("ACTION_TYPE_UNSUPPORTED", aw, { detail: `type "${a.type}"` });
           return;
         }
+        if ((a.type === "add_tag" || a.type === "remove_tag") && !a.tag_id) F.add("ACTION_TAG_REQUIRED", aw);
+        if ((a.type === "add_to_sequence" || a.type === "remove_from_sequence") && !a.sequence_id) F.add("ACTION_SEQUENCE_REQUIRED", aw);
+        if ((a.type === "set_custom_field_value" || a.type === "change_global_field_value") && !a.field_id) F.add("ACTION_FIELD_REQUIRED", aw);
+        if ((a.type === "set_custom_field_value" || a.type === "change_global_field_value") && a.field_id && (a.value === void 0 || a.value === null || a.value === "")) F.add("ACTION_FIELD_VALUE_REQUIRED", aw);
+        if (a.type === "unset_custom_field_value" && !a.field_id) F.add("ACTION_UNSET_FIELD_REQUIRED", aw);
+        if (a.type === "start_flow" && !a.flow_ns) F.add("ACTION_START_FLOW_REQUIRED", aw);
+        if (a.type === "assign_conversation" && !a.user_id && !a.group_id) F.add("ACTION_ASSIGN_REQUIRED", aw);
+        if (a.type === "set_user_level_menu" && !a.main_menu_flow_ns) F.add("ACTION_MAIN_MENU_REQUIRED", aw);
+        if (a.type === "pause_automations" && !a.pause_duration) F.add("ACTION_PAUSE_DURATION_REQUIRED", aw);
+        if (a.type === "fire_custom_event" && !a.event_id) F.add("ACTION_EVENT_REQUIRED", aw);
+        if (INTEGRATION_ACTIONS.includes(a.type) && !a.action) F.add("ACTION_INTEGRATION_ACTION_REQUIRED", aw, { detail: `${a.type} without \`action\`` });
+        if ((a.type === "custom_audience_user" || a.type === "custom_audience_ig_user") && !(a.ad_account_id && a.custom_audience_id && a.action)) F.add("ACTION_CUSTOM_AUDIENCE_REQUIRED", aw);
+        if (a.type === "notify_admin" && !String(a.text ?? "").trim()) F.add("ACTION_NOTIFY_TEXT_REQUIRED", aw);
         if (a.type === "add_tag" || a.type === "remove_tag") {
           const id = Number(a.tag_id);
           if (context.triggerTagIds?.has(id)) F.add("TAG_WRONG", aw, { detail: `tag ${id} is a trigger auto-tag` });
@@ -53379,6 +53482,10 @@ function validateBatch({ contents, rootContent, context = {} }) {
       if (!ns) F.add("GOTO_FLOW_REQUIRED", where);
       else if (context.knownFlowNs && !context.knownFlowNs.has(ns)) F.add("GOTO_FLOW_WRONG", where, { detail: `flow ${ns} is not on this account` });
     }
+    if (c.type === "ai_node") {
+      if (!String(c.prompt ?? "").trim()) F.add("AI_NODE_PROMPT_REQUIRED", where);
+      if (c.default_target) checkTarget(c.default_target, { ...where, key: "default_target" });
+    }
     if (c.type === "note") {
       const n = c.note ?? {};
       if (n.font_size != null && !NOTE_FONT_SIZES.includes(n.font_size)) F.add("NOTE_FONT_SIZE", where, { detail: n.font_size });
@@ -53389,8 +53496,8 @@ function validateBatch({ contents, rootContent, context = {} }) {
   }
   return F.result();
 }
-function validateWidgetData(data = {}) {
-  const F = new Findings();
+function validateWidgetData(data = {}, { allowUiWarnings = false } = {}) {
+  const F = new Findings({ allowUiWarnings });
   const s = data.feed_comment_settings ?? {};
   const w = data.feed_comment_welcome ?? {};
   if (s.post_covered_area == null) F.add("WIDGET_AREA_MISSING", { key: "feed_comment_settings.post_covered_area" });
@@ -53405,8 +53512,8 @@ function validateWidgetData(data = {}) {
   if (new Set(replies.map((r) => r.toLowerCase())).size < replies.length) F.add("WIDGET_REPLIES_UNIQUE", { key: "feed_comment_welcome.public_reply_messages" });
   return F.result();
 }
-function validateKeywordRules({ keyword_rules, channel }) {
-  const F = new Findings();
+function validateKeywordRules({ keyword_rules, channel, allowUiWarnings = false }) {
+  const F = new Findings({ allowUiWarnings });
   const rules = Array.isArray(keyword_rules) ? keyword_rules : [];
   if (channel && !["instagram", "facebook", "whatsapp", "telegram", "tiktok", "sms"].includes(channel)) F.add("KEYWORD_CHANNEL_UNKNOWN", { key: "channel" }, { detail: String(channel) });
   if (rules.length > 5) F.add("KEYWORD_RULES_MAX_5", { key: "keyword_rules" }, { detail: `${rules.length} rules` });
@@ -53535,9 +53642,9 @@ function captionErrors(contentNodeErrors, contents) {
   }
   const out = [];
   for (const [key, message] of Object.entries(contentNodeErrors ?? {})) {
-    const [ref2, ...rest] = key.split(".");
-    const node2 = byOid.get(ref2) ?? byId.get(ref2) ?? null;
-    out.push({ key, caption: node2?.caption ?? null, type: node2?.type ?? null, oid: node2?._oid ?? (byOid.has(ref2) ? ref2 : null), content_id: node2?.content_id ?? null, prop: rest.join(".") || null, message });
+    const [ref, ...rest] = key.split(".");
+    const node2 = byOid.get(ref) ?? byId.get(ref) ?? null;
+    out.push({ key, caption: node2?.caption ?? null, type: node2?.type ?? null, oid: node2?._oid ?? (byOid.has(ref) ? ref : null), content_id: node2?.content_id ?? null, prop: rest.join(".") || null, message });
   }
   return out;
 }
@@ -53578,7 +53685,9 @@ var nodes = {
   condition: (ns, caption) => ({ type: "multi_condition", _oid: uuid3(), namespace: ns, caption, content_id: null, removed: false, conditions: [], default_target: null, default_target_oid: uuid3() }),
   smartDelay: (ns, caption, value, unit) => ({ type: "smart_delay", _oid: uuid3(), namespace: ns, caption, content_id: null, removed: false, target: null, limit_time: null, shift_time: { unit, value } }),
   split: (ns, caption, randomized = true) => ({ type: "split", _oid: uuid3(), namespace: ns, caption, content_id: null, removed: false, randomized, variants: [] }),
-  note: (ns, text, { color = "default", font_size = "small", note_size = "medium", user_id = null } = {}) => ({ type: "note", _oid: uuid3(), namespace: ns, caption: "note", content_id: null, removed: false, note: { _oid: uuid3(), user_id, timestamp: Math.floor(Date.now() / 1e3), text, color, font_size, note_size } })
+  note: (ns, text, { color = "default", font_size = "small", note_size = "medium", user_id = null } = {}) => ({ type: "note", _oid: uuid3(), namespace: ns, caption: "note", content_id: null, removed: false, note: { _oid: uuid3(), user_id, timestamp: Math.floor(Date.now() / 1e3), text, color, font_size, note_size } }),
+  // ManyChat AI step (BackendContentType.AI_NODE): Exporter.processAiNode.
+  aiNode: (ns, caption, prompt, { default_target = null, abilities = [], resources = null } = {}) => ({ type: "ai_node", _oid: uuid3(), namespace: ns, caption, content_id: null, removed: false, default_target, prompt, abilities, resources })
 };
 var blocks = {
   text: (text, keyboard = []) => ({ _oid: uuid3(), type: "text", content: { text }, keyboard }),
@@ -53601,11 +53710,15 @@ var blocks = {
     ...timeout_target ? { timeout_target } : {}
   })
 };
+blocks.externalImage = (url2) => ({ _oid: uuid3(), type: "attachment", content: { type: "external_image", data: { url: url2 } }, keyboard: [] });
+blocks.attachment = (type, data) => ({ _oid: uuid3(), type: "attachment", content: { type, data }, keyboard: [] });
+blocks.card = ({ title, subtitle = "", image = null, keyboard = [], default_action = null }) => ({ _oid: uuid3(), type: "card", content: { title, subtitle, image }, default_action, is_hidden: false, keyboard });
+blocks.cards = (elements, { image_aspect_ratio = "horizontal" } = {}) => ({ _oid: uuid3(), type: "cards", image_aspect_ratio, elements, keyboard: [] });
+blocks.dynamic = ({ url: url2, method = "get", payload = null, headers = {}, fallback = null }) => ({ _oid: uuid3(), type: "dynamic", method: String(method).toLowerCase(), url: url2, payload, headers, fallback, keyboard: [] });
 var buttons = {
   content: (caption, oid) => ({ _oid: uuid3(), type: "content", caption, _content_oid: oid, actions: [] }),
   url: (caption, url2) => ({ _oid: uuid3(), type: "url", caption, url: url2, webview_size: "full", do_not_track: false, actions: [] })
 };
-var ref = (oid) => ({ _content_oid: oid });
 
 // core/build-flow.mjs
 init_define_ENDPOINT_CATALOG();
@@ -53622,161 +53735,602 @@ var SAVE_TO = {
   first_name: { answer_type: "first_name", adapters: [{ type: "save_first_name_to_system_field" }] },
   last_name: { answer_type: "last_name", adapters: [{ type: "save_last_name_to_system_field" }] }
 };
-function compileSpec(spec, { ns, resolvers = {} } = {}) {
+var OPTIN = { sms: "set_sms_optin", email: "set_email_optin", instagram: "set_instagram_optin", telegram: "set_telegram_optin", tiktok: "set_tiktok_optin" };
+var OPTOUT = { sms: "set_sms_optout", email: "set_email_optout", whatsapp: "set_whatsapp_optout", instagram: "set_instagram_optout", telegram: "set_telegram_optout", tiktok: "set_tiktok_optout" };
+var INTEGRATIONS = ["hubspot", "convertkit", "chatgpt", "claude", "deepseek", "google_sheets", "active_campaign", "klaviyo", "mailchimp"];
+function makeCtx({ ns, resolvers = {}, target }) {
   const problems = [];
-  const warnings = [];
-  if (!ns) problems.push({ where: "ns", message: "a flow namespace (ns) is required \u2014 create the flow first or let build_flow create it" });
-  const list = Array.isArray(spec?.nodes) ? spec.nodes : [];
-  if (!list.length) problems.push({ where: "nodes", message: "spec.nodes is empty" });
+  const idOr = (v, resolve4, kind, where, hint) => {
+    if (typeof v === "number") return v;
+    if (typeof v === "string" && /^\d+$/.test(v)) return Number(v);
+    const id = resolve4?.(String(v));
+    if (id == null) {
+      problems.push({ where, message: `${kind} "${v}" does not exist on this account${hint ? ` (${hint})` : ""}` });
+      return 0;
+    }
+    return id;
+  };
+  const ctx = {
+    ns,
+    problems,
+    tag: (name, where) => idOr(name, resolvers.tagId, "tag", where, "create it with create_tag; trigger auto-tags cannot be used"),
+    field: (name, where) => idOr(name, resolvers.fieldId, "custom field", where, "create it with create_field"),
+    botField: (name, where) => idOr(name, resolvers.botFieldId, "bot field", where, "create it with create_bot_field"),
+    target: (cap, where) => cap == null ? null : target(cap, where),
+    problem: (where, message) => problems.push({ where, message })
+  };
+  ctx.tokens = (text, where) => String(text ?? "").replace(/\{\{\s*field:([^}]+?)\s*\}\}/g, (_, name) => `{{cuf_${ctx.field(name.trim(), where)}}}`).replace(/\{\{\s*bot:([^}]+?)\s*\}\}/g, (_, name) => `{{gaf_${ctx.botField(name.trim(), where)}}}`);
+  return ctx;
+}
+function compileButton(b, ctx, where) {
+  if (b?.url) return buttons.url(String(b.caption ?? ""), ctx.tokens(b.url, where));
+  const t = ctx.target(b?.to, where);
+  return { _oid: uuid3(), type: "content", caption: String(b?.caption ?? ""), ...t ?? {}, actions: [] };
+}
+function compileBlock(b, ctx, where) {
+  if (!b || typeof b !== "object") {
+    ctx.problem(where, "a block must be an object");
+    return null;
+  }
+  if (b.text != null) return blocks.text(ctx.tokens(b.text, where), (b.buttons ?? []).map((x) => compileButton(x, ctx, where)));
+  if (b.delay != null) return blocks.delay(Number(b.delay), b.typing ?? true);
+  if (b.image_url) {
+    ctx.problem(where, 'ManyChat will not send an image by URL \u2014 it answers "Attachment without caid". Upload it first with upload_attachment and pass {attachment:{type:"image", data:<the returned object>}}');
+    return null;
+  }
+  if (b.attachment) {
+    if (!b.attachment.type || !b.attachment.data) ctx.problem(where, "attachment needs {type: image|video|file|gif, data: <the object upload_attachment returned>}");
+    return blocks.attachment(b.attachment.type, b.attachment.data);
+  }
+  if (b.cards) {
+    const els = (Array.isArray(b.cards) ? b.cards : []).map((c) => blocks.card({
+      title: ctx.tokens(c.title, where),
+      subtitle: ctx.tokens(c.subtitle ?? "", where),
+      image: c.image_url ? (ctx.problem(where, 'a card image cannot be a URL \u2014 ManyChat answers "Attachment without caid". Upload it with upload_attachment and pass the returned object as `image`'), null) : c.image ?? null,
+      default_action: c.url ? { type: "url", url: ctx.tokens(c.url, where), webview_size: "full" } : null,
+      keyboard: (c.buttons ?? []).map((x) => compileButton(x, ctx, where))
+    }));
+    return blocks.cards(els, { image_aspect_ratio: b.aspect ?? "horizontal" });
+  }
+  if (b.dynamic) {
+    const d = b.dynamic;
+    const payload = d.payload == null ? null : payloadString(d.payload, ctx, where);
+    return blocks.dynamic({ url: ctx.tokens(d.url, where), method: d.method ?? "get", payload, headers: d.headers ?? {}, fallback: ctx.target(d.fallback, where) });
+  }
+  if (b.question) {
+    const q = b.question;
+    const saveTo = typeof q.save_to === "string" ? SAVE_TO[q.save_to] : null;
+    if (typeof q.save_to === "string" && !saveTo) ctx.problem(where, `question.save_to "${q.save_to}" is not email|phone|first_name|last_name|{field:"Name"}`);
+    const adapters = saveTo ? saveTo.adapters : q.save_to?.field ? [{ type: "save_answer_to_custom_field", field_id: ctx.field(q.save_to.field, where) }] : [];
+    return blocks.question({
+      text: ctx.tokens(q.text, where),
+      answer_type: q.answer_type ?? saveTo?.answer_type ?? "text",
+      adapters,
+      validation_message: q.retry_text ?? null,
+      skip_button_caption: q.skip_caption ?? null,
+      limit_failed: q.retries ?? 4,
+      timeout: q.timeout ?? { unit: "minutes", value: 30 },
+      success_target: ctx.target(q.next, where),
+      timeout_target: ctx.target(q.on_timeout, where)
+    });
+  }
+  ctx.problem(where, "a block must be {text}, {delay}, {question}, {image_url}, {attachment}, {cards} or {dynamic}");
+  return null;
+}
+var payloadString = (payload, ctx, where) => typeof payload === "string" ? ctx.tokens(payload, where) : ctx.tokens(JSON.stringify(payload ?? {}, null, 2), where);
+function compileAction(a, ctx, where) {
+  if (!a || typeof a !== "object") {
+    ctx.problem(where, "an action must be an object");
+    return null;
+  }
+  if (a.add_tag != null) return { type: "add_tag", tag_id: ctx.tag(a.add_tag, where) };
+  if (a.remove_tag != null) return { type: "remove_tag", tag_id: ctx.tag(a.remove_tag, where) };
+  if (a.set_field) return { type: "set_custom_field_value", field_id: ctx.field(a.set_field.field, where), value: ctx.tokens(a.set_field.value, where) };
+  if (a.unset_field != null) return { type: "unset_custom_field_value", field_id: ctx.field(a.unset_field, where) };
+  if (a.set_bot_field) return { type: "change_global_field_value", field_id: ctx.botField(a.set_bot_field.field, where), value: ctx.tokens(a.set_bot_field.value, where) };
+  if (a.external_request) {
+    const e = a.external_request;
+    return { type: "external_request", url: ctx.tokens(e.url, where), method: (e.method ?? "POST").toUpperCase(), headers: e.headers ?? { "Content-Type": "application/json" }, payload: payloadString(e.payload, ctx, where), mapping: e.mapping ?? [] };
+  }
+  if (a.notify_admin) return { type: "notify_admin", text: ctx.tokens(a.notify_admin.text, where), send_to: a.notify_admin.send_to ?? [], all_send_by: a.notify_admin.via ?? ["email"], options: { send_link_to_live_chat: a.notify_admin.link_to_chat ?? true } };
+  if (a.start_flow) return { type: "start_flow", flow_ns: a.start_flow };
+  if (a.add_to_sequence != null) return { type: "add_to_sequence", sequence_id: Number(a.add_to_sequence) };
+  if (a.remove_from_sequence != null) return { type: "remove_from_sequence", sequence_id: Number(a.remove_from_sequence) };
+  if (a.open_conversation) return { type: "open_conversation" };
+  if (a.close_conversation) return { type: "close_conversation" };
+  if (a.assign_conversation) return { type: "assign_conversation", ...a.assign_conversation.user_id != null ? { user_id: a.assign_conversation.user_id } : {}, ...a.assign_conversation.group_id != null ? { group_id: a.assign_conversation.group_id } : {} };
+  if (a.set_optin) {
+    const t = OPTIN[a.set_optin];
+    if (!t) ctx.problem(where, `set_optin "${a.set_optin}" is not ${Object.keys(OPTIN).join("|")}`);
+    return { type: t ?? "set_email_optin", optin: true };
+  }
+  if (a.set_optout) {
+    const t = OPTOUT[a.set_optout];
+    if (!t) ctx.problem(where, `set_optout "${a.set_optout}" is not ${Object.keys(OPTOUT).join("|")}`);
+    return { type: t ?? "set_email_optout" };
+  }
+  if (a.pause_automations) return { type: "pause_automations", pause_duration: a.pause_automations.duration ?? a.pause_automations.pause_duration };
+  if (a.pause_automation_forever) return { type: "pause_automation_forever" };
+  if (a.resume_automation) return { type: "resume_automation" };
+  if (a.fire_custom_event) return { type: "fire_custom_event", event_id: a.fire_custom_event.event_id, ...a.fire_custom_event.cost != null ? { cost: a.fire_custom_event.cost } : {} };
+  if (a.set_main_menu) return { type: "set_user_level_menu", main_menu_flow_ns: a.set_main_menu };
+  if (a.integration) {
+    if (!INTEGRATIONS.includes(a.integration.type)) ctx.problem(where, `integration.type "${a.integration.type}" is not ${INTEGRATIONS.join("|")}`);
+    return { type: a.integration.type, action: a.integration.action, data: a.integration.data ?? {} };
+  }
+  if (a.raw?.type) return { ...a.raw };
+  ctx.problem(where, `unrecognised action ${JSON.stringify(a).slice(0, 80)}`);
+  return null;
+}
+function compileConditionItem(w, ctx, where) {
+  if (w.system_field) return { _oid: uuid3(), type: "suf", field: w.system_field, operator: w.op ?? "HAS_VALUE", ...w.value !== void 0 ? { value: w.value } : {} };
+  if (w.field) return { _oid: uuid3(), type: "cuf", field: `cuf_${ctx.field(w.field, where)}`, operator: w.op ?? "HAS_VALUE", ...w.value !== void 0 ? { value: w.value } : {} };
+  if (w.tag != null) return { _oid: uuid3(), type: "tag", field: "tag", operator: w.op ?? "IS", value: ctx.tag(w.tag, where) };
+  ctx.problem(where, "a condition item needs system_field, field or tag");
+  return null;
+}
+function compileFilter(ifSpec, ctx, where) {
+  if (!ifSpec || typeof ifSpec !== "object") {
+    ctx.problem(where, "condition.if is required");
+    return { operator: "AND", groups: [] };
+  }
+  const outer = Array.isArray(ifSpec.all) ? "AND" : Array.isArray(ifSpec.any) ? "OR" : null;
+  if (!outer) {
+    const one = compileConditionItem(ifSpec, ctx, where);
+    return { operator: "AND", groups: [{ operator: "AND", items: one ? [one] : [] }] };
+  }
+  const list = ifSpec.all ?? ifSpec.any;
+  if (!list.length) ctx.problem(where, "condition.if all/any needs at least one item");
+  const groups = [];
+  const loose = [];
+  for (const entry of list) {
+    const innerOp = Array.isArray(entry?.all) ? "AND" : Array.isArray(entry?.any) ? "OR" : null;
+    if (!innerOp) {
+      loose.push(entry);
+      continue;
+    }
+    const inner = entry.all ?? entry.any;
+    if (inner.some((x) => Array.isArray(x?.all) || Array.isArray(x?.any))) {
+      ctx.problem(where, "condition.if nests at most one level (a ManyChat filter is groups of items); flatten the third level");
+      continue;
+    }
+    groups.push({ operator: innerOp, items: inner.map((w) => compileConditionItem(w, ctx, where)).filter(Boolean) });
+  }
+  if (loose.length) groups.push({ operator: outer, items: loose.map((w) => compileConditionItem(w, ctx, where)).filter(Boolean) });
+  return { operator: outer, groups };
+}
+function compileNode(n, ctx, oid) {
+  const cap = String(n.caption ?? "").trim();
+  const where = cap;
+  const type = n.type ?? "message";
+  let node2;
+  if (type === "message" || type === "instagram") {
+    node2 = nodes.channel(n.channel ?? ctx.channel ?? "instagram", ctx.ns, cap);
+    if (n.private_reply) node2.private_reply = "private_reply";
+    const blockSpecs = Array.isArray(n.blocks) ? [...n.blocks] : [];
+    if (n.text != null || n.buttons) blockSpecs.unshift({ text: n.text ?? "", buttons: n.buttons ?? [] });
+    for (const b of blockSpecs) {
+      const blk = compileBlock(b, ctx, where);
+      if (blk) node2.messages.push(blk);
+    }
+    if (n.quick_replies?.length) node2.quick_replies = { buttons: n.quick_replies.map((x) => compileButton(x, ctx, where)), settings: {} };
+    node2.target = ctx.target(n.next, where);
+  } else if (type === "actions" || type === "action_group") {
+    const acts = (n.actions ?? []).map((a) => compileAction(a, ctx, where)).filter(Boolean);
+    node2 = nodes.actionGroup(ctx.ns, cap, acts, { target: ctx.target(n.next, where) });
+  } else if (type === "condition") {
+    node2 = nodes.condition(ctx.ns, cap);
+    for (const c of n.conditions ?? []) node2.conditions.push({ _oid: uuid3(), filter: compileFilter(c.if, ctx, where), target: ctx.target(c.then, where) });
+    node2.default_target = ctx.target(n.else, where);
+  } else if (type === "goto") {
+    if (!n.flow) ctx.problem(where, 'goto needs flow: "<ns>"');
+    node2 = nodes.goto(ctx.ns, cap, n.flow);
+  } else if (type === "delay" || type === "smart_delay") {
+    node2 = nodes.smartDelay(ctx.ns, cap, Number(n.value), n.unit ?? "minutes");
+    node2.target = ctx.target(n.next, where);
+  } else if (type === "split") {
+    node2 = nodes.split(ctx.ns, cap, n.randomized ?? true);
+    const colors = ["#5AB2FF", "#8DDF6D", "#FFC94F", "#FF8A65", "#B39DDB", "#4DD0E1"];
+    (n.variants ?? []).forEach((v, i) => node2.variants.push({ _oid: uuid3(), type: "variant", data: { color: colors[i % colors.length], title: v.title ?? String.fromCharCode(65 + i) }, percent: Number(v.percent), target: ctx.target(v.to, where) }));
+  } else if (type === "ai" || type === "ai_node") {
+    node2 = nodes.aiNode(ctx.ns, cap, ctx.tokens(n.prompt, where), { default_target: ctx.target(n.next, where), abilities: n.abilities ?? [], resources: n.resources ?? null });
+  } else if (type === "note") {
+    node2 = nodes.note(ctx.ns, String(n.text ?? ""), { color: n.color, font_size: n.font_size, note_size: n.note_size });
+  } else {
+    ctx.problem(where, `unknown node type "${type}" (message|actions|condition|goto|delay|split|ai|note)`);
+    return null;
+  }
+  if (oid) node2._oid = oid;
+  return node2;
+}
+function compileSpec(spec, { ns, resolvers = {} } = {}) {
   const entries = [];
   const captions = /* @__PURE__ */ new Map();
+  const list = Array.isArray(spec?.nodes) ? spec.nodes : [];
+  const pre = [];
+  if (!ns) pre.push({ where: "ns", message: "a flow namespace (ns) is required \u2014 create the flow first or let build_flow create it" });
+  if (!list.length) pre.push({ where: "nodes", message: "spec.nodes is empty" });
   for (const n of list) {
     const cap = String(n?.caption ?? "").trim();
     if (!cap) {
-      problems.push({ where: "nodes", message: "every node needs a caption" });
+      pre.push({ where: "nodes", message: "every node needs a caption" });
       continue;
     }
     const entry = { spec: n, oid: uuid3(), cap };
     entries.push(entry);
-    if (captions.has(cap)) problems.push({ where: cap, message: `duplicate caption "${cap}" \u2014 captions are the edge addresses and must be unique` });
+    if (captions.has(cap)) pre.push({ where: cap, message: `duplicate caption "${cap}" \u2014 captions are the edge addresses and must be unique` });
     else captions.set(cap, entry);
   }
   const rootCap = String(spec?.root ?? "").trim();
-  if (!rootCap) problems.push({ where: "root", message: "spec.root must name the first node by caption" });
-  else if (!captions.has(rootCap)) problems.push({ where: "root", message: `spec.root "${rootCap}" names no node` });
-  const oidOf = (cap, where) => {
-    if (cap == null) return null;
+  if (!rootCap) pre.push({ where: "root", message: "spec.root must name the first node by caption" });
+  else if (!captions.has(rootCap)) pre.push({ where: "root", message: `spec.root "${rootCap}" names no node` });
+  const ctx = makeCtx({ ns: ns ?? "PENDING", resolvers, target: (cap, where) => {
     const e = captions.get(String(cap));
     if (!e) {
-      problems.push({ where, message: `edge to unknown caption "${cap}"` });
+      ctx.problem(where, `edge to unknown caption "${cap}"`);
       return null;
     }
-    return e.oid;
-  };
-  const tag = (name, where) => {
-    const id = resolvers.tagId?.(name);
-    if (id == null) {
-      problems.push({ where, message: `tag "${name}" does not exist on this account (create it with create_tag; trigger auto-tags cannot be used)` });
-      return 0;
-    }
-    return id;
-  };
-  const field = (name, where) => {
-    const id = resolvers.fieldId?.(name);
-    if (id == null) {
-      problems.push({ where, message: `custom field "${name}" does not exist on this account (create it with create_field)` });
-      return 0;
-    }
-    return id;
-  };
-  const botField = (name, where) => {
-    const id = resolvers.botFieldId?.(name);
-    if (id == null) {
-      problems.push({ where, message: `bot field "${name}" does not exist on this account (create it with create_bot_field)` });
-      return 0;
-    }
-    return id;
-  };
-  const tokens = (text, where) => String(text ?? "").replace(/\{\{\s*field:([^}]+?)\s*\}\}/g, (_, name) => `{{cuf_${field(name.trim(), where)}}}`).replace(/\{\{\s*bot:([^}]+?)\s*\}\}/g, (_, name) => `{{gaf_${botField(name.trim(), where)}}}`);
-  const mkButton = (b, where) => {
-    if (b?.url) return buttons.url(String(b.caption ?? ""), String(b.url));
-    return buttons.content(String(b?.caption ?? ""), oidOf(b?.to, where));
-  };
-  const contents = [];
-  for (const { spec: n, oid, cap } of entries) {
-    const type = n.type ?? "message";
-    const where = cap;
-    if (type === "message" || type === "instagram") {
-      const node2 = nodes.channel(n.channel ?? spec.channel ?? "instagram", ns, cap);
-      node2._oid = oid;
-      if (n.private_reply) node2.private_reply = "private_reply";
-      const blockSpecs = Array.isArray(n.blocks) ? n.blocks : [];
-      if (n.text != null || n.buttons) blockSpecs.unshift({ text: n.text ?? "", buttons: n.buttons ?? [] });
-      for (const b of blockSpecs) {
-        if (b.text != null) node2.messages.push(blocks.text(tokens(b.text, where), (b.buttons ?? []).map((x) => mkButton(x, where))));
-        else if (b.delay != null) node2.messages.push(blocks.delay(Number(b.delay), b.typing ?? true));
-        else if (b.question) {
-          const q = b.question;
-          const saveTo = typeof q.save_to === "string" ? SAVE_TO[q.save_to] : null;
-          if (typeof q.save_to === "string" && !saveTo) problems.push({ where, message: `question.save_to "${q.save_to}" is not email|phone|first_name|last_name|{field:"Name"}` });
-          const adapters = saveTo ? saveTo.adapters : q.save_to?.field ? [{ type: "save_answer_to_custom_field", field_id: field(q.save_to.field, where) }] : [];
-          node2.messages.push(blocks.question({
-            text: tokens(q.text, where),
-            answer_type: q.answer_type ?? saveTo?.answer_type ?? "text",
-            adapters,
-            validation_message: q.retry_text ?? null,
-            skip_button_caption: q.skip_caption ?? null,
-            limit_failed: q.retries ?? 4,
-            timeout: q.timeout ?? { unit: "minutes", value: 30 },
-            success_target: q.next ? ref(oidOf(q.next, where)) : null,
-            timeout_target: q.on_timeout ? ref(oidOf(q.on_timeout, where)) : null
-          }));
-        } else problems.push({ where, message: "a block must be {text}, {delay} or {question}" });
-      }
-      if (n.quick_replies?.length) node2.quick_replies = { buttons: n.quick_replies.map((x) => mkButton(x, where)), settings: {} };
-      if (n.next) node2.target = ref(oidOf(n.next, where));
-      contents.push(node2);
-    } else if (type === "actions" || type === "action_group") {
-      const acts = [];
-      for (const a of n.actions ?? []) {
-        if (a.add_tag) acts.push({ type: "add_tag", tag_id: tag(a.add_tag, where) });
-        else if (a.remove_tag) acts.push({ type: "remove_tag", tag_id: tag(a.remove_tag, where) });
-        else if (a.set_field) acts.push({ type: "set_custom_field_value", field_id: field(a.set_field.field, where), value: tokens(a.set_field.value, where) });
-        else if (a.unset_field) acts.push({ type: "unset_custom_field_value", field_id: field(a.unset_field, where) });
-        else if (a.set_bot_field) acts.push({ type: "change_global_field_value", field_id: botField(a.set_bot_field.field, where), value: tokens(a.set_bot_field.value, where) });
-        else if (a.external_request) {
-          const e = a.external_request;
-          acts.push({ type: "external_request", url: tokens(e.url, where), method: e.method ?? "POST", headers: e.headers ?? { "Content-Type": "application/json" }, payload: typeof e.payload === "string" ? tokens(e.payload, where) : JSON.stringify(e.payload ?? {}, null, 2).replace(/\{\{\s*field:([^}]+?)\s*\}\}/g, (_, nm) => `{{cuf_${field(nm.trim(), where)}}}`).replace(/\{\{\s*bot:([^}]+?)\s*\}\}/g, (_, nm) => `{{gaf_${botField(nm.trim(), where)}}}`), mapping: e.mapping ?? [] });
-        } else if (a.notify_admin) acts.push({ type: "notify_admin", text: tokens(a.notify_admin.text, where), send_to: a.notify_admin.send_to ?? [], all_send_by: a.notify_admin.via ?? ["email"], options: { send_link_to_live_chat: a.notify_admin.link_to_chat ?? true } });
-        else if (a.start_flow) acts.push({ type: "start_flow", flow_ns: a.start_flow });
-        else if (a.raw?.type) acts.push({ ...a.raw });
-        else problems.push({ where, message: `unrecognised action ${JSON.stringify(a).slice(0, 80)}` });
-      }
-      const node2 = nodes.actionGroup(ns, cap, acts, { target: n.next ? ref(oidOf(n.next, where)) : null });
-      node2._oid = oid;
-      contents.push(node2);
-    } else if (type === "condition") {
-      const node2 = nodes.condition(ns, cap);
-      node2._oid = oid;
-      for (const c of n.conditions ?? []) {
-        const w = c.if ?? {};
-        let item;
-        if (w.system_field) item = { _oid: uuid3(), type: "suf", field: w.system_field, operator: w.op ?? "HAS_VALUE", ...w.value !== void 0 ? { value: w.value } : {} };
-        else if (w.field) item = { _oid: uuid3(), type: "cuf", field: `cuf_${field(w.field, where)}`, operator: w.op ?? "HAS_VALUE", ...w.value !== void 0 ? { value: w.value } : {} };
-        else if (w.tag) item = { _oid: uuid3(), type: "tag", field: "tag", operator: w.op ?? "IS", value: tag(w.tag, where) };
-        else {
-          problems.push({ where, message: "condition.if needs system_field, field or tag" });
-          continue;
-        }
-        node2.conditions.push({ _oid: uuid3(), filter: { operator: "AND", groups: [{ operator: "AND", items: [item] }] }, target: c.then ? ref(oidOf(c.then, where)) : null });
-      }
-      if (n.else) node2.default_target = ref(oidOf(n.else, where));
-      contents.push(node2);
-    } else if (type === "goto") {
-      if (!n.flow) problems.push({ where, message: 'goto needs flow: "<ns>"' });
-      const node2 = nodes.goto(ns, cap, n.flow);
-      node2._oid = oid;
-      contents.push(node2);
-    } else if (type === "delay" || type === "smart_delay") {
-      const node2 = nodes.smartDelay(ns, cap, Number(n.value), n.unit ?? "minutes");
-      node2._oid = oid;
-      if (n.next) node2.target = ref(oidOf(n.next, where));
-      contents.push(node2);
-    } else if (type === "split") {
-      const node2 = nodes.split(ns, cap, n.randomized ?? true);
-      node2._oid = oid;
-      const colors = ["#5AB2FF", "#8DDF6D", "#FFC94F", "#FF8A65", "#B39DDB", "#4DD0E1"];
-      (n.variants ?? []).forEach((v, i) => node2.variants.push({ _oid: uuid3(), type: "variant", data: { color: colors[i % colors.length], title: v.title ?? String.fromCharCode(65 + i) }, percent: Number(v.percent), target: v.to ? ref(oidOf(v.to, where)) : null }));
-      contents.push(node2);
-    } else if (type === "note") {
-      const node2 = nodes.note(ns, String(n.text ?? ""), { color: n.color, font_size: n.font_size, note_size: n.note_size });
-      node2._oid = oid;
-      node2.caption = "note";
-      contents.push(node2);
-    } else problems.push({ where, message: `unknown node type "${type}" (message|actions|condition|goto|delay|split|note)` });
+    return { _content_oid: e.oid };
+  } });
+  ctx.channel = spec?.channel ?? "instagram";
+  ctx.problems.push(...pre);
+  const contents = entries.map(({ spec: n, oid }) => compileNode(n, ctx, oid)).filter(Boolean);
+  if (ctx.problems.length) throw new CompileError(ctx.problems);
+  return { contents, root: captions.get(rootCap).oid, captionToOid: Object.fromEntries([...captions].map(([k, v]) => [k, v.oid])), warnings: [] };
+}
+
+// core/edit-flow.mjs
+init_define_ENDPOINT_CATALOG();
+init_define_TOOL_CATALOG();
+var EditError = class extends Error {
+  constructor(problems) {
+    super(`edit has ${problems.length} problem(s)`);
+    this.problems = problems;
   }
-  if (problems.length) throw new CompileError(problems);
-  return { contents, root: captions.get(rootCap).oid, captionToOid: Object.fromEntries([...captions].map(([k, v]) => [k, v.oid])), warnings };
+};
+var CHANNEL = /* @__PURE__ */ new Set(["default", "instagram", "whatsapp", "telegram", "tiktok", "sms", "email_new"]);
+function applyOps({ batch, ops, ns, resolvers = {} }) {
+  const contents = batch.contents.map((c) => ({ ...c }));
+  let root = batch.root;
+  const byCaption = /* @__PURE__ */ new Map();
+  for (const c of contents) if (!c.removed) byCaption.set(String(c.caption), c);
+  const added = /* @__PURE__ */ new Set();
+  const changed = /* @__PURE__ */ new Set();
+  const removed = /* @__PURE__ */ new Set();
+  const refTo = (node2) => node2.content_id != null ? { content_id: node2.content_id, _content_oid: node2._oid } : { _content_oid: node2._oid };
+  const ctx = makeCtx({ ns, resolvers, target: (cap, where) => {
+    const n = byCaption.get(String(cap));
+    if (!n) {
+      ctx.problem(where, `edge to unknown caption "${cap}"`);
+      return null;
+    }
+    return refTo(n);
+  } });
+  ctx.channel = "instagram";
+  const need = (op, i) => {
+    const n = byCaption.get(String(op.node));
+    if (!n) ctx.problem(`ops[${i}] ${op.op}`, `no node with caption "${op.node}"`);
+    return n;
+  };
+  const touch = (n) => {
+    if (!added.has(n._oid)) changed.add(n.caption);
+  };
+  const blockAt = (n, op, i) => {
+    if (!CHANNEL.has(n.type)) {
+      ctx.problem(`ops[${i}] ${op.op}`, `"${n.caption}" is ${/^[aeiou]/.test(n.type) ? "an" : "a"} ${n.type} node, not a message node`);
+      return null;
+    }
+    const idx = op.block ?? 0;
+    const b = (n.messages ?? [])[idx];
+    if (!b) ctx.problem(`ops[${i}] ${op.op}`, `"${n.caption}" has no block ${idx}`);
+    return b;
+  };
+  const replaceBlock = (n, idx, blk) => {
+    n.messages = n.messages.map((b, j) => j === idx ? blk : b);
+  };
+  ops.forEach((op, i) => {
+    const where = `ops[${i}] ${op?.op}`;
+    switch (op?.op) {
+      case "set_text": {
+        const n = need(op, i);
+        if (!n) break;
+        const b = blockAt(n, op, i);
+        if (!b) break;
+        if (b.type !== "text" && b.type !== "question") {
+          ctx.problem(where, `block ${op.block ?? 0} of "${n.caption}" is a ${b.type} block`);
+          break;
+        }
+        replaceBlock(n, op.block ?? 0, { ...b, content: { ...b.content ?? {}, text: ctx.tokens(op.text, where) } });
+        touch(n);
+        break;
+      }
+      case "set_caption": {
+        const n = need(op, i);
+        if (!n) break;
+        const cap = String(op.caption ?? "").trim();
+        if (!cap) {
+          ctx.problem(where, "caption cannot be blank");
+          break;
+        }
+        if (byCaption.has(cap) && byCaption.get(cap) !== n) {
+          ctx.problem(where, `caption "${cap}" is already used`);
+          break;
+        }
+        byCaption.delete(String(n.caption));
+        n.caption = cap;
+        byCaption.set(cap, n);
+        touch(n);
+        break;
+      }
+      case "set_next": {
+        const n = need(op, i);
+        if (!n) break;
+        if (n.type === "multi_condition" || n.type === "split" || n.type === "goto" || n.type === "note") {
+          ctx.problem(where, `"${n.caption}" (${n.type}) has no single next step; use set_conditions / set_split / set_goto`);
+          break;
+        }
+        const key = n.type === "ai_node" ? "default_target" : "target";
+        n[key] = op.to == null ? null : ctx.target(op.to, where);
+        touch(n);
+        break;
+      }
+      case "set_private_reply": {
+        const n = need(op, i);
+        if (!n) break;
+        if (!CHANNEL.has(n.type)) {
+          ctx.problem(where, `"${n.caption}" is not a message node`);
+          break;
+        }
+        n.private_reply = op.value ? "private_reply" : null;
+        touch(n);
+        break;
+      }
+      case "add_button": {
+        const n = need(op, i);
+        if (!n) break;
+        const b = blockAt(n, op, i);
+        if (!b) break;
+        replaceBlock(n, op.block ?? 0, { ...b, keyboard: [...b.keyboard ?? [], compileButton(op.button, ctx, where)] });
+        touch(n);
+        break;
+      }
+      case "set_button": {
+        const n = need(op, i);
+        if (!n) break;
+        const b = blockAt(n, op, i);
+        if (!b) break;
+        const j = (b.keyboard ?? []).findIndex((x) => x.caption === op.caption);
+        if (j < 0) {
+          ctx.problem(where, `no button "${op.caption}" on block ${op.block ?? 0} of "${n.caption}"`);
+          break;
+        }
+        const old = b.keyboard[j];
+        const fresh = compileButton({ caption: op.new_caption ?? old.caption, ...op.url ? { url: op.url } : op.to ? { to: op.to } : old.url ? { url: old.url } : {} }, ctx, where);
+        if (!op.url && !op.to && !old.url) Object.assign(fresh, { content_id: old.content_id, _content_oid: old._content_oid });
+        fresh._oid = old._oid;
+        replaceBlock(n, op.block ?? 0, { ...b, keyboard: b.keyboard.map((x, k) => k === j ? fresh : x) });
+        touch(n);
+        break;
+      }
+      case "remove_button": {
+        const n = need(op, i);
+        if (!n) break;
+        const b = blockAt(n, op, i);
+        if (!b) break;
+        const before = (b.keyboard ?? []).length;
+        const kb = (b.keyboard ?? []).filter((x) => x.caption !== op.caption);
+        if (kb.length === before) {
+          ctx.problem(where, `no button "${op.caption}" on block ${op.block ?? 0} of "${n.caption}"`);
+          break;
+        }
+        replaceBlock(n, op.block ?? 0, { ...b, keyboard: kb });
+        touch(n);
+        break;
+      }
+      case "set_quick_replies": {
+        const n = need(op, i);
+        if (!n) break;
+        if (!CHANNEL.has(n.type)) {
+          ctx.problem(where, `"${n.caption}" is not a message node`);
+          break;
+        }
+        n.quick_replies = { buttons: (op.quick_replies ?? []).map((x) => compileButton(x, ctx, where)), settings: n.quick_replies?.settings ?? {} };
+        touch(n);
+        break;
+      }
+      case "add_block": {
+        const n = need(op, i);
+        if (!n) break;
+        if (!CHANNEL.has(n.type)) {
+          ctx.problem(where, `"${n.caption}" is not a message node`);
+          break;
+        }
+        const blk = compileBlock(op.block, ctx, where);
+        if (!blk) break;
+        const msgs = [...n.messages ?? []];
+        msgs.splice(op.at ?? msgs.length, 0, blk);
+        n.messages = msgs;
+        touch(n);
+        break;
+      }
+      case "replace_block": {
+        const n = need(op, i);
+        if (!n) break;
+        const b = blockAt(n, { ...op, block: op.at }, i);
+        if (!b) break;
+        const blk = compileBlock(op.block, ctx, where);
+        if (!blk) break;
+        replaceBlock(n, op.at, blk);
+        touch(n);
+        break;
+      }
+      case "remove_block": {
+        const n = need(op, i);
+        if (!n) break;
+        const b = blockAt(n, { ...op, block: op.at }, i);
+        if (!b) break;
+        n.messages = n.messages.filter((_, j) => j !== op.at);
+        touch(n);
+        break;
+      }
+      case "set_actions": {
+        const n = need(op, i);
+        if (!n) break;
+        if (n.type !== "action_group") {
+          ctx.problem(where, `"${n.caption}" is not an action group`);
+          break;
+        }
+        n.actions = (op.actions ?? []).map((a) => compileAction(a, ctx, where)).filter(Boolean).map((a) => ({ _oid: uuid3(), ...a }));
+        touch(n);
+        break;
+      }
+      case "add_action": {
+        const n = need(op, i);
+        if (!n) break;
+        if (n.type !== "action_group") {
+          ctx.problem(where, `"${n.caption}" is not an action group`);
+          break;
+        }
+        const a = compileAction(op.action, ctx, where);
+        if (!a) break;
+        const acts = [...n.actions ?? []];
+        acts.splice(op.at ?? acts.length, 0, { _oid: uuid3(), ...a });
+        n.actions = acts;
+        touch(n);
+        break;
+      }
+      case "remove_action": {
+        const n = need(op, i);
+        if (!n) break;
+        if (n.type !== "action_group") {
+          ctx.problem(where, `"${n.caption}" is not an action group`);
+          break;
+        }
+        if (!(n.actions ?? [])[op.at]) {
+          ctx.problem(where, `"${n.caption}" has no action ${op.at}`);
+          break;
+        }
+        n.actions = n.actions.filter((_, j) => j !== op.at);
+        touch(n);
+        break;
+      }
+      case "set_conditions": {
+        const n = need(op, i);
+        if (!n) break;
+        if (n.type !== "multi_condition") {
+          ctx.problem(where, `"${n.caption}" is not a condition node`);
+          break;
+        }
+        n.conditions = (op.conditions ?? []).map((c) => ({ _oid: uuid3(), filter: compileFilter(c.if, ctx, where), target: ctx.target(c.then, where) }));
+        n.default_target = ctx.target(op.else, where);
+        touch(n);
+        break;
+      }
+      case "set_delay": {
+        const n = need(op, i);
+        if (!n) break;
+        if (n.type !== "smart_delay") {
+          ctx.problem(where, `"${n.caption}" is not a delay node`);
+          break;
+        }
+        n.shift_time = { unit: op.unit ?? n.shift_time?.unit ?? "minutes", value: Number(op.value) };
+        touch(n);
+        break;
+      }
+      case "set_split": {
+        const n = need(op, i);
+        if (!n) break;
+        if (n.type !== "split") {
+          ctx.problem(where, `"${n.caption}" is not a split node`);
+          break;
+        }
+        const colors = ["#5AB2FF", "#8DDF6D", "#FFC94F", "#FF8A65", "#B39DDB", "#4DD0E1"];
+        n.variants = (op.variants ?? []).map((v, k) => ({ _oid: uuid3(), type: "variant", data: { color: colors[k % colors.length], title: v.title ?? String.fromCharCode(65 + k) }, percent: Number(v.percent), target: ctx.target(v.to, where) }));
+        if (op.randomized != null) n.randomized = Boolean(op.randomized);
+        touch(n);
+        break;
+      }
+      case "set_goto": {
+        const n = need(op, i);
+        if (!n) break;
+        if (n.type !== "goto") {
+          ctx.problem(where, `"${n.caption}" is not a goto node`);
+          break;
+        }
+        n.target = { flow_ns: op.flow };
+        touch(n);
+        break;
+      }
+      case "set_prompt": {
+        const n = need(op, i);
+        if (!n) break;
+        if (n.type !== "ai_node") {
+          ctx.problem(where, `"${n.caption}" is not an AI node`);
+          break;
+        }
+        n.prompt = ctx.tokens(op.prompt, where);
+        touch(n);
+        break;
+      }
+      case "add_node": {
+        const cap = String(op.node?.caption ?? "").trim();
+        if (!cap) {
+          ctx.problem(where, "add_node needs a node spec with a caption");
+          break;
+        }
+        if (byCaption.has(cap)) {
+          ctx.problem(where, `caption "${cap}" is already used`);
+          break;
+        }
+        const placeholder = { _oid: uuid3(), caption: cap, content_id: null };
+        byCaption.set(cap, placeholder);
+        const node2 = compileNode(op.node, ctx, placeholder._oid);
+        if (!node2) {
+          byCaption.delete(cap);
+          break;
+        }
+        byCaption.set(cap, node2);
+        contents.push(node2);
+        added.add(node2._oid);
+        break;
+      }
+      case "remove_node": {
+        const n = need(op, i);
+        if (!n) break;
+        const rewire = op.rewire === void 0 ? void 0 : op.rewire === null ? null : byCaption.get(String(op.rewire)) ?? (ctx.problem(where, `rewire target "${op.rewire}" does not exist`), void 0);
+        const isRef = (t) => t && (t._content_oid && t._content_oid === n._oid || t.content_id != null && n.content_id != null && String(t.content_id) === String(n.content_id));
+        for (const other of contents) {
+          if (other === n || other.removed) continue;
+          for (const t of targetRefs(other)) if (isRef(t)) {
+            if (rewire === void 0) ctx.problem(where, `"${other.caption}" still points at "${n.caption}"; pass rewire:"<caption>" or rewire:null`);
+            else {
+              const rep = rewire ? refTo(rewire) : null;
+              for (const k of Object.keys(t)) delete t[k];
+              if (rep) Object.assign(t, rep);
+            }
+          }
+        }
+        if (String(root) === String(n._oid) || n.content_id != null && String(root) === String(n.content_id)) ctx.problem(where, `"${n.caption}" is the root; set_root to another node first`);
+        n.removed = true;
+        byCaption.delete(String(n.caption));
+        removed.add(n.caption);
+        break;
+      }
+      case "set_root": {
+        const n = need(op, i);
+        if (!n) break;
+        root = n.content_id ?? n._oid;
+        changed.add(n.caption);
+        break;
+      }
+      default:
+        ctx.problem(where, `unknown op "${op?.op}"`);
+    }
+  });
+  if (ctx.problems.length) throw new EditError(ctx.problems);
+  for (const c of contents) for (const t of targetRefs(c)) {
+  }
+  return { contents, root, summary: { changed: [...changed], added: [...added].map((oid) => contents.find((c) => c._oid === oid)?.caption), removed: [...removed] } };
 }
 
 // core/catalog.mjs
@@ -53877,7 +54431,7 @@ function describeEndpoint({ id, method, path }) {
 var HERE2 = dirname3(fileURLToPath2(import.meta.url));
 var CATALOG = true ? define_TOOL_CATALOG_default : (() => {
   try {
-    return JSON.parse(readFileSync(resolve2(HERE2, "../tool-descriptions.json"), "utf8"));
+    return JSON.parse(readFileSync3(resolve2(HERE2, "../tool-descriptions.json"), "utf8"));
   } catch {
     return {};
   }
@@ -53896,6 +54450,7 @@ var schema = (shape) => {
 var fromThrown = (e) => {
   if (e instanceof SessionError || e?.code && e?.remediation) return fail(e.code, e.detail ?? e.message, e.remediation);
   if (e instanceof CompileError) return fail(CODES.VALIDATION_FAILED, `spec has ${e.problems.length} problem(s)`, "Fix every listed problem and retry; nothing was sent.", { problems: e.problems });
+  if (e instanceof EditError) return fail(CODES.VALIDATION_FAILED, `edit has ${e.problems.length} problem(s)`, "Fix every listed problem and retry; nothing was sent and the flow is untouched.", { problems: e.problems });
   return fail(CODES.ENGINE_ABORT, e?.message ?? String(e), "Unexpected failure \u2014 inspect detail; nothing more was sent.");
 };
 var guard = async (fn) => {
@@ -54039,6 +54594,7 @@ function verifyPublished(sent, root, flow) {
   const rootNode = pub.contents.find((c) => c._oid === root || String(c.content_id) === String(root));
   return { matches: !missing.length && !typeMismatch.length && Boolean(rootNode) && !flow.has_unpublished_changes, missing, typeMismatch, rootStored: rootNode ? { caption: rootNode.caption, content_id: rootNode.content_id } : null, has_unpublished_changes: flow.has_unpublished_changes, storedCount: pub.contents.length };
 }
+var MIME = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", mp4: "video/mp4", mov: "video/quicktime", pdf: "application/pdf", mp3: "audio/mpeg" };
 var CONFIRM = (what, preview) => fail(CODES.CONFIRM_REQUIRED, `${what} \u2014 nothing was sent.`, "Review data.preview, then repeat the same call with confirm:true. Only do so if the user asked for this in THIS session.", { preview });
 var TOOLS = [
   {
@@ -54135,7 +54691,7 @@ var TOOLS = [
   {
     name: "set_flow_draft",
     description: describe3("set_flow_draft", "REPLACE the whole draft (flow/setDraft) with a contents batch. ManyChat validates NOTHING here \u2014 garbage is stored and shown as broken nodes \u2014 so the ledger runs first and refuses server-enforced failures unless skipValidation:true. Reads back has_unpublished_changes."),
-    inputSchema: schema({ ns: external_exports.string(), contents: external_exports.array(external_exports.unknown()), root_content: external_exports.union([external_exports.string(), external_exports.number()]).optional(), coordinates: external_exports.record(external_exports.string(), external_exports.unknown()).optional(), skipValidation: external_exports.boolean().default(false), accountId: external_exports.string().optional() }),
+    inputSchema: schema({ ns: external_exports.string(), contents: external_exports.array(external_exports.unknown()), root_content: external_exports.union([external_exports.string(), external_exports.number()]).optional(), coordinates: external_exports.record(external_exports.string(), external_exports.unknown()).optional(), skipValidation: external_exports.boolean().default(false), allowUiWarnings: external_exports.boolean().default(false).describe("demote the client-only rules (the API accepts them; ManyChat's builder marks the node broken and a channel may refuse it at send time) from blocking to warnings \u2014 an explicit choice, never the default"), accountId: external_exports.string().optional() }),
     capabilities: [{ rail: "internal", method: "POST", path: "/flow/setDraft" }, { rail: "internal", method: "GET", path: "/flow/getFlowData" }],
     handler: async (args, deps) => draftWrite("setDraft", args, deps)
   },
@@ -54149,7 +54705,7 @@ var TOOLS = [
   {
     name: "check_flow",
     description: describe3("check_flow", "Run the validation ledger (ManyChat's own publish rules, server-vs-client marked) over a batch or over a flow's current draft/published contents WITHOUT sending anything. Also returns the rule table on request."),
-    inputSchema: schema({ ns: external_exports.string().optional(), contents: external_exports.array(external_exports.unknown()).optional(), root_content: external_exports.union([external_exports.string(), external_exports.number()]).optional(), commentTriggerAttached: external_exports.boolean().optional().describe("override; default = whether the flow has a comment/story widget"), rules: external_exports.boolean().default(false).describe("include the full rule table"), accountId: external_exports.string().optional() }),
+    inputSchema: schema({ ns: external_exports.string().optional(), contents: external_exports.array(external_exports.unknown()).optional(), root_content: external_exports.union([external_exports.string(), external_exports.number()]).optional(), commentTriggerAttached: external_exports.boolean().optional().describe("override; default = whether the flow has a comment/story widget"), rules: external_exports.boolean().default(false).describe("include the full rule table"), allowUiWarnings: external_exports.boolean().default(false).describe("demote the client-only rules (the API accepts them; ManyChat's builder marks the node broken and a channel may refuse it at send time) from blocking to warnings \u2014 an explicit choice, never the default"), accountId: external_exports.string().optional() }),
     capabilities: [{ rail: "internal", method: "GET", path: "/flow/getFlowData" }, { rail: "internal", method: "GET", path: "/tags/list" }, { rail: "internal", method: "GET", path: "/customFields/list" }, { rail: "internal", method: "GET", path: "/globalFields/list" }, { rail: "internal", method: "GET", path: "/growth-tools/list" }, { rail: "internal", method: "GET", path: "/cms/getFlows" }],
     handler: async (args, deps) => guard(async () => {
       const gw = deps.makeGw({ accountId: args.accountId });
@@ -54167,14 +54723,14 @@ var TOOLS = [
       }
       const ctx = await ledgerContext(gw, { flows: true });
       if (ctx.bad) return ctx.bad;
-      const result = validateBatch({ contents, rootContent: root, context: { ...ctx, commentTriggerAttached: attached ?? false, channel: "instagram" } });
+      const result = validateBatch({ contents, rootContent: root, context: { ...ctx, commentTriggerAttached: attached ?? false, channel: "instagram" }, allowUiWarnings: args.allowUiWarnings === true });
       return ok({ ...result, commentTriggerAttached: attached ?? false, ...args.rules ? { rules: ruleTable() } : {} });
     })
   },
   {
     name: "publish_flow",
     description: describe3("publish_flow", "Publish (flow/publish): the batch you pass, or the flow's current draft. Runs the ledger FIRST so every server-enforced problem appears at once (keyed by caption) instead of one per call; refuses on a blocking finding unless skipValidation:true. Upserts by _oid/content_id; content_node_errors come back keyed by caption. Reads the flow back on a separate request and verifies what landed."),
-    inputSchema: schema({ ns: external_exports.string(), contents: external_exports.array(external_exports.unknown()).optional().describe("omit to publish the flow's current draft_batch"), root_content: external_exports.union([external_exports.string(), external_exports.number()]).optional(), coordinates: external_exports.record(external_exports.string(), external_exports.unknown()).optional(), skipValidation: external_exports.boolean().default(false), accountId: external_exports.string().optional() }),
+    inputSchema: schema({ ns: external_exports.string(), contents: external_exports.array(external_exports.unknown()).optional().describe("omit to publish the flow's current draft_batch"), root_content: external_exports.union([external_exports.string(), external_exports.number()]).optional(), coordinates: external_exports.record(external_exports.string(), external_exports.unknown()).optional(), skipValidation: external_exports.boolean().default(false), allowUiWarnings: external_exports.boolean().default(false).describe("demote the client-only rules (the API accepts them; ManyChat's builder marks the node broken and a channel may refuse it at send time) from blocking to warnings \u2014 an explicit choice, never the default"), accountId: external_exports.string().optional() }),
     capabilities: [{ rail: "internal", method: "GET", path: "/flow/getFlowData" }, { rail: "internal", method: "POST", path: "/flow/publish" }],
     handler: async (args, deps) => guard(async () => {
       const gw = deps.makeGw({ accountId: args.accountId });
@@ -54199,7 +54755,7 @@ var TOOLS = [
       if (!args.skipValidation) {
         const ctx = await ledgerContext(gw, { flows: true });
         if (ctx.bad) return ctx.bad;
-        ledger = validateBatch({ contents, rootContent: root, context: { ...ctx, commentTriggerAttached: summary.triggers.commentTriggerAttached, channel: "instagram" } });
+        ledger = validateBatch({ contents, rootContent: root, context: { ...ctx, commentTriggerAttached: summary.triggers.commentTriggerAttached, channel: "instagram" }, allowUiWarnings: args.allowUiWarnings === true });
         const refusal = ledgerRefusal(ledger, "publish");
         if (refusal) return refusal;
       }
@@ -54262,7 +54818,7 @@ var TOOLS = [
   {
     name: "build_flow",
     description: describe3("build_flow", "Compile a compact caption-addressed spec into a ManyChat batch (fresh _oids, names resolved to tag/field/bot-field ids, {{field:Name}}/{{bot:Name}} tokens), run the ledger \u2014 including the comment-reply root rules \u2014 then create the flow (unless ns is given), publish (or setDraft when publish:false), read back and verify. dryRun returns the compiled batch and findings without touching the account. Spec format is in the manychat-automation-specialist skill and in core/build-flow.mjs."),
-    inputSchema: schema({ spec: external_exports.record(external_exports.string(), external_exports.unknown()).describe("{root, nodes:[{caption,type,\u2026}], channel?}"), name: external_exports.string().optional().describe("flow name when creating"), ns: external_exports.string().optional().describe("existing flow to (re)build into"), path: external_exports.string().default("/"), publish: external_exports.boolean().default(true), commentTrigger: external_exports.boolean().default(false).describe("true = validate as if a comment/story trigger will be attached (root must be a private reply)"), dryRun: external_exports.boolean().default(false), accountId: external_exports.string().optional() }),
+    inputSchema: schema({ spec: external_exports.record(external_exports.string(), external_exports.unknown()).describe("{root, nodes:[{caption,type,\u2026}], channel?}"), name: external_exports.string().optional().describe("flow name when creating"), ns: external_exports.string().optional().describe("existing flow to (re)build into"), path: external_exports.string().default("/"), publish: external_exports.boolean().default(true), commentTrigger: external_exports.boolean().default(false).describe("true = validate as if a comment/story trigger will be attached (root must be a private reply)"), dryRun: external_exports.boolean().default(false), allowUiWarnings: external_exports.boolean().default(false).describe("demote the client-only rules (the API accepts them; ManyChat's builder marks the node broken and a channel may refuse it at send time) from blocking to warnings \u2014 an explicit choice, never the default"), accountId: external_exports.string().optional() }),
     capabilities: [{ rail: "internal", method: "GET", path: "/tags/list" }, { rail: "internal", method: "GET", path: "/customFields/list" }, { rail: "internal", method: "GET", path: "/globalFields/list" }, { rail: "internal", method: "GET", path: "/growth-tools/list" }, { rail: "internal", method: "GET", path: "/cms/getFlows" }, { rail: "internal", method: "POST", path: "/cms/createFlow" }, { rail: "internal", method: "POST", path: "/flow/publish" }, { rail: "internal", method: "POST", path: "/flow/setDraft" }, { rail: "internal", method: "GET", path: "/flow/getFlowData" }],
     handler: async (args, deps) => guard(async () => {
       const gw = deps.makeGw({ accountId: args.accountId });
@@ -54282,7 +54838,7 @@ var TOOLS = [
         if (r.bad) return r.bad;
         attached = attached || flowSummary(r.flow, { contents: false }).triggers.commentTriggerAttached;
       }
-      const ledger = validateBatch({ contents: compiled.contents, rootContent: compiled.root, context: { ...ctx, commentTriggerAttached: attached, channel: "instagram" } });
+      const ledger = validateBatch({ contents: compiled.contents, rootContent: compiled.root, context: { ...ctx, commentTriggerAttached: attached, channel: "instagram" }, allowUiWarnings: args.allowUiWarnings === true });
       const refusal = ledgerRefusal(ledger, args.publish === false ? "the draft (on a later publish)" : "publish");
       const layout = layoutCoordinates(compiled.contents, compiled.root);
       if (args.dryRun || refusal) {
@@ -54328,7 +54884,7 @@ var TOOLS = [
   {
     name: "create_comment_trigger",
     description: describe3("create_comment_trigger", `Attach an Instagram comment trigger to a flow: the createWidget \u2192 setFlow \u2192 setWidget \u2192 setDraftStatus(draft) dance in one call, then loadWidget read-back. post_covered_area is REQUIRED (all_posts | specific_post + post_id | next_post). Always ends in DRAFT. Warns that createWidget also mints a stray "Opt-In Message" flow (its ns is returned \u2014 never deleted). Validates the widget data (ledger) and reminds you of the flow's private-reply root rule.`),
-    inputSchema: schema({ ns: external_exports.string(), keywords: external_exports.array(external_exports.string()).default([]), post_covered_area: external_exports.string().describe("all_posts | specific_post | next_post"), post_id: external_exports.union([external_exports.string(), external_exports.number()]).optional(), public_replies: external_exports.array(external_exports.string()).default([]).describe("rotating public comment replies; the UI wants \u2265 3 unique"), name: external_exports.string().optional(), exclude_keywords: external_exports.array(external_exports.string()).default([]), comment_contains: external_exports.string().default("specific_words"), like_comment: external_exports.boolean().default(false), track_root_comment_only: external_exports.boolean().default(false), skipValidation: external_exports.boolean().default(false), accountId: external_exports.string().optional() }),
+    inputSchema: schema({ ns: external_exports.string(), keywords: external_exports.array(external_exports.string()).default([]), post_covered_area: external_exports.string().describe("all_posts | specific_post | next_post"), post_id: external_exports.union([external_exports.string(), external_exports.number()]).optional(), public_replies: external_exports.array(external_exports.string()).default([]).describe("rotating public comment replies; the UI wants \u2265 3 unique"), name: external_exports.string().optional(), exclude_keywords: external_exports.array(external_exports.string()).default([]), comment_contains: external_exports.string().default("specific_words"), like_comment: external_exports.boolean().default(false), track_root_comment_only: external_exports.boolean().default(false), skipValidation: external_exports.boolean().default(false), allowUiWarnings: external_exports.boolean().default(false).describe("demote the client-only rules (the API accepts them; ManyChat's builder marks the node broken and a channel may refuse it at send time) from blocking to warnings \u2014 an explicit choice, never the default"), accountId: external_exports.string().optional() }),
     capabilities: [{ rail: "internal", method: "POST", path: "/growth-tools/createWidget" }, { rail: "internal", method: "POST", path: "/growth-tools/setFlow" }, { rail: "internal", method: "POST", path: "/growth-tools/setWidget" }, { rail: "internal", method: "POST", path: "/growth-tools/setDraftStatus" }, { rail: "internal", method: "GET", path: "/growth-tools/loadWidget" }, { rail: "internal", method: "GET", path: "/flow/getFlowData" }],
     handler: async (args, deps) => guard(async () => {
       const gw = deps.makeGw({ accountId: args.accountId });
@@ -54337,7 +54893,7 @@ var TOOLS = [
         feed_comment_welcome: { public_reply_messages: args.public_replies ?? [], like_user_comment: Boolean(args.like_comment) },
         actions: { opt_in_status: "do_not_send" }
       };
-      const ledger = validateWidgetData(data);
+      const ledger = validateWidgetData(data, { allowUiWarnings: args.allowUiWarnings === true });
       if (!args.skipValidation) {
         const refusal = ledgerRefusal(ledger, "the trigger");
         if (refusal) return refusal;
@@ -54376,11 +54932,11 @@ var TOOLS = [
   {
     name: "create_dm_keyword",
     description: describe3("create_dm_keyword", 'Create a DRAFT DM keyword trigger bound to a flow (keywords/createDraft) and read it back (keywords/get). Refuses system keywords (start/stop/subscribe/unsubscribe \u2014 the server says "Trying to rewrite system keyword rule"), unknown conditions (the server 500s) and more than 12 keywords per rule.'),
-    inputSchema: schema({ ns: external_exports.string(), keyword_rules: external_exports.array(external_exports.object({ condition: external_exports.string(), keywords: external_exports.array(external_exports.string()).default([]) }).passthrough()).describe("condition \u2208 equals|contains|word_match|starts|not_contains|any_message|thumbs_up"), channel: external_exports.string().default("instagram"), skipValidation: external_exports.boolean().default(false), accountId: external_exports.string().optional() }),
+    inputSchema: schema({ ns: external_exports.string(), keyword_rules: external_exports.array(external_exports.object({ condition: external_exports.string(), keywords: external_exports.array(external_exports.string()).default([]) }).passthrough()).describe("condition \u2208 equals|contains|word_match|starts|not_contains|any_message|thumbs_up"), channel: external_exports.string().default("instagram"), skipValidation: external_exports.boolean().default(false), allowUiWarnings: external_exports.boolean().default(false).describe("demote the client-only rules (the API accepts them; ManyChat's builder marks the node broken and a channel may refuse it at send time) from blocking to warnings \u2014 an explicit choice, never the default"), accountId: external_exports.string().optional() }),
     capabilities: [{ rail: "internal", method: "POST", path: "/keywords/createDraft" }, { rail: "internal", method: "GET", path: "/keywords/get" }],
     handler: async (args, deps) => guard(async () => {
       const gw = deps.makeGw({ accountId: args.accountId });
-      const ledger = validateKeywordRules({ keyword_rules: args.keyword_rules, channel: args.channel ?? "instagram" });
+      const ledger = validateKeywordRules({ keyword_rules: args.keyword_rules, channel: args.channel ?? "instagram", allowUiWarnings: args.allowUiWarnings === true });
       if (!args.skipValidation) {
         const refusal = ledgerRefusal(ledger, "the keyword rule");
         if (refusal) return refusal;
@@ -54575,6 +55131,82 @@ var TOOLS = [
       return ok({ minted: true, replaced: Boolean(existing), storedIn: deps.state.sessionFile, verified: { page: { id: probe.json?.data?.id ?? null, name: probe.json?.data?.name ?? null } }, note: "the key itself is never returned; the public-rail tools read it from the session file" });
     })
   },
+  {
+    name: "edit_flow",
+    description: describe3("edit_flow", "Edit a PUBLISHED flow with caption-addressed operations instead of hand-writing node JSON: set_text, set_caption, set_next, set_private_reply, add/set/remove_button, set_quick_replies, add/replace/remove_block, set/add/remove_action, set_conditions, set_delay, set_split, set_goto, set_prompt, add_node, remove_node (with rewire), set_root. Reads the flow, applies the ops to its published batch, runs the SAME ledger publish_flow runs, republishes as an upsert, then reads back and verifies. dryRun returns the resulting batch and findings without sending. Nothing is deleted: remove_node marks removed:true and refuses to orphan an edge unless you say where it should point."),
+    inputSchema: schema({
+      ns: external_exports.string(),
+      ops: external_exports.array(external_exports.record(external_exports.string(), external_exports.unknown())).describe("operations in order; each names its node by caption"),
+      dryRun: external_exports.boolean().default(false),
+      relayout: external_exports.boolean().default(false).describe("re-run the BFS canvas layout after the edit (nodes added by an edit otherwise stack at the origin)"),
+      allowUiWarnings: external_exports.boolean().default(false),
+      skipValidation: external_exports.boolean().default(false),
+      accountId: external_exports.string().optional()
+    }),
+    capabilities: [{ rail: "internal", method: "GET", path: "/flow/getFlowData" }, { rail: "internal", method: "GET", path: "/tags/list" }, { rail: "internal", method: "GET", path: "/customFields/list" }, { rail: "internal", method: "GET", path: "/globalFields/list" }, { rail: "internal", method: "GET", path: "/growth-tools/list" }, { rail: "internal", method: "GET", path: "/cms/getFlows" }, { rail: "internal", method: "POST", path: "/flow/publish" }],
+    handler: async (args, deps) => guard(async () => {
+      const gw = deps.makeGw({ accountId: args.accountId });
+      const r = await readFlow(gw, args.ns);
+      if (r.bad) return r.bad;
+      if (!r.flow.has_published_content) return fail(CODES.VALIDATION_FAILED, `flow ${args.ns} has no published content to edit`, "Build it first (build_flow), or write the draft with set_flow_draft.");
+      const summary = flowSummary(r.flow, { contents: false });
+      const batch = publishedToBatch(r.flow);
+      const ctx = await ledgerContext(gw, { flows: true });
+      if (ctx.bad) return ctx.bad;
+      let edited;
+      try {
+        edited = applyOps({ batch, ops: args.ops ?? [], ns: args.ns, resolvers: resolversFrom(ctx) });
+      } catch (e) {
+        return fromThrown(e);
+      }
+      let ledger = null;
+      if (!args.skipValidation) {
+        ledger = validateBatch({ contents: edited.contents, rootContent: edited.root, context: { ...ctx, commentTriggerAttached: summary.triggers.commentTriggerAttached, channel: "instagram" }, allowUiWarnings: args.allowUiWarnings === true });
+        const refusal = ledgerRefusal(ledger, "the edited flow");
+        if (refusal) return { ...refusal, data: { ...refusal.data, summary: edited.summary } };
+      }
+      const coordinates = args.relayout ? layoutCoordinates(edited.contents.filter((c) => !c.removed), edited.root).coords : r.flow.draft_coordinates ?? void 0;
+      if (args.dryRun) return ok({ ns: args.ns, dryRun: true, summary: edited.summary, ledger, batch: { root: edited.root, contents: edited.contents }, coordinates });
+      const p = await publishBatch(gw, { ns: args.ns, contents: edited.contents, root: edited.root, coordinates, tag: "edit" });
+      if (p.bad) return { ...p.bad, data: { ...p.bad.data ?? {}, summary: edited.summary } };
+      const verify = verifyPublished(edited.contents, edited.root, p.flow);
+      return ok({ ns: args.ns, summary: edited.summary, verify, warnings: ledger?.warnings ?? [], readBack: flowSummary(p.flow) });
+    })
+  },
+  {
+    name: "upload_attachment",
+    description: describe3("upload_attachment", "Upload a local image, video, file or gif to the account (POST /content/upload, multipart) and return the attachment object a message block needs. Pass that object back as blocks:[{attachment:{type,data}}]. For an image you can already reach by URL, skip this and use {image_url} \u2014 ManyChat sends it as an external image with no upload."),
+    inputSchema: schema({ path: external_exports.string().describe("absolute path to the local file"), type: external_exports.string().default("image").describe("image | video | file | gif"), accountId: external_exports.string().optional() }),
+    capabilities: [{ rail: "internal", method: "POST", path: "/content/upload" }],
+    handler: async (args, deps) => guard(async () => {
+      const type = String(args.type ?? "image");
+      if (!["image", "video", "file", "gif"].includes(type)) return fail(CODES.VALIDATION_FAILED, "type must be image, video, file or gif (value withheld)", "Pass one of the four.");
+      let bytes;
+      try {
+        bytes = readFileSync3(args.path);
+      } catch (e) {
+        return fail(CODES.VALIDATION_FAILED, `cannot read ${args.path}: ${e.code ?? e.message}`, "Pass an absolute path to a readable local file.");
+      }
+      const gw = deps.makeGw({ accountId: args.accountId });
+      const name = args.path.split("/").pop();
+      const mime = MIME[name.split(".").pop()?.toLowerCase()] ?? (type === "image" ? "image/png" : "application/octet-stream");
+      const form = new FormData();
+      form.append("0", new Blob([bytes], { type: mime }), name);
+      const { res, bad } = await mc(gw, "POST", "/content/upload", form);
+      if (bad) return bad;
+      const attachment = res.json?.attachment;
+      if (!attachment) return fail(CODES.ENGINE_ABORT, "upload answered 200 without an attachment", "Inspect data.response.", { response: res.json });
+      return ok({
+        attachment,
+        type,
+        useAs: {
+          block: { attachment: { type, data: attachment } },
+          cardImage: attachment
+        },
+        note: 'pass useAs.block into a blocks list, or useAs.cardImage as a card\'s `image`. ManyChat refuses an image it did not store: a URL-only block fails with "Attachment without caid".'
+      });
+    })
+  },
   // ── public rail ──────────────────────────────────────────────────────────────────────
   {
     name: "get_contact",
@@ -54739,7 +55371,7 @@ async function draftWrite(op, args, deps) {
     let ledger = null;
     const ctx = await ledgerContext(gw, { flows: true });
     if (ctx.bad) return ctx.bad;
-    ledger = validateBatch({ contents, rootContent: root, context: { ...ctx, commentTriggerAttached: flowSummary(r.flow, { contents: false }).triggers.commentTriggerAttached, channel: "instagram" } });
+    ledger = validateBatch({ contents, rootContent: root, context: { ...ctx, commentTriggerAttached: flowSummary(r.flow, { contents: false }).triggers.commentTriggerAttached, channel: "instagram" }, allowUiWarnings: args.allowUiWarnings === true });
     if (!args.skipValidation) {
       const refusal = ledgerRefusal(ledger, "a later publish");
       if (refusal) return refusal;

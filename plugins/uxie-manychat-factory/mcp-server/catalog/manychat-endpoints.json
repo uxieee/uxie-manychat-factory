@@ -4672,7 +4672,8 @@
    "coveredBy": [
     "list_flows",
     "check_flow",
-    "build_flow"
+    "build_flow",
+    "edit_flow"
    ],
    "note": "query path=/&field=modified&order=desc; field ∈ FsQueryOrderField",
    "kind": "read"
@@ -5083,8 +5084,11 @@
     "shared/api/requests/content/index.ts"
    ],
    "legacy": false,
-   "proven": "source",
-   "coveredBy": [],
+   "proven": "live",
+   "summary": "Upload an image/video/file/gif (multipart); returns {attachment:{caid,title,type}} for an attachment block.",
+   "coveredBy": [
+    "upload_attachment"
+   ],
    "kind": "write"
   },
   {
@@ -5434,7 +5438,8 @@
     "list_fields",
     "check_flow",
     "build_flow",
-    "create_field"
+    "create_field",
+    "edit_flow"
    ],
    "kind": "read"
   },
@@ -6348,7 +6353,8 @@
     "rename_flow",
     "build_flow",
     "create_comment_trigger",
-    "set_trigger_status"
+    "set_trigger_status",
+    "edit_flow"
    ],
    "kind": "read"
   },
@@ -6409,7 +6415,8 @@
    "coveredBy": [
     "publish_flow",
     "build_flow",
-    "layout_flow"
+    "layout_flow",
+    "edit_flow"
    ],
    "kind": "write"
   },
@@ -6994,7 +7001,8 @@
     "check_flow",
     "build_flow",
     "create_bot_field",
-    "set_bot_field_value"
+    "set_bot_field_value",
+    "edit_flow"
    ],
    "kind": "read"
   },
@@ -7476,7 +7484,8 @@
     "list_triggers",
     "check_flow",
     "build_flow",
-    "list_tags"
+    "list_tags",
+    "edit_flow"
    ],
    "kind": "read"
   },
@@ -13012,7 +13021,8 @@
     "list_tags",
     "check_flow",
     "build_flow",
-    "create_tag"
+    "create_tag",
+    "edit_flow"
    ],
    "kind": "read"
   },

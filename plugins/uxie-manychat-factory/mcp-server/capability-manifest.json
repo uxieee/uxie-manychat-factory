@@ -384,6 +384,54 @@
     "path": "/fb/page/getInfo"
   },
   {
+    "tool": "edit_flow",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/flow/getFlowData"
+  },
+  {
+    "tool": "edit_flow",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/tags/list"
+  },
+  {
+    "tool": "edit_flow",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/customFields/list"
+  },
+  {
+    "tool": "edit_flow",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/globalFields/list"
+  },
+  {
+    "tool": "edit_flow",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/growth-tools/list"
+  },
+  {
+    "tool": "edit_flow",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/cms/getFlows"
+  },
+  {
+    "tool": "edit_flow",
+    "rail": "internal",
+    "method": "POST",
+    "path": "/flow/publish"
+  },
+  {
+    "tool": "upload_attachment",
+    "rail": "internal",
+    "method": "POST",
+    "path": "/content/upload"
+  },
+  {
     "tool": "get_contact",
     "rail": "public",
     "method": "GET",

@@ -70,7 +70,10 @@ export function makeInternalGateway({ sessionFile, accountId = null, fetchImpl =
     const h = headers(body !== undefined);
     let payload;
     if (body !== undefined) {
-      if (form) { h['content-type'] = 'application/x-www-form-urlencoded'; payload = new URLSearchParams(body).toString(); }
+      // multipart: hand the FormData straight to fetch and let IT set the boundary — setting
+      // content-type ourselves produces a body the server cannot parse.
+      if (body instanceof FormData) { delete h['content-type']; payload = body; }
+      else if (form) { h['content-type'] = 'application/x-www-form-urlencoded'; payload = new URLSearchParams(body).toString(); }
       else payload = JSON.stringify(body);
     }
     await sleepImpl(throttleMs + Math.floor(randomImpl() * jitterMs));

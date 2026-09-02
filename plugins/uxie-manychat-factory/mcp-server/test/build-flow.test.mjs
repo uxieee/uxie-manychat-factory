@@ -78,3 +78,87 @@ test('publishedToBatch strips server stat keys and re-adds the envelope; caption
   assert.deepEqual(captionErrors({ 'o1.private_reply': 'msg' }, b.contents)[0], { key: 'o1.private_reply', caption: 'Hello', type: 'instagram', oid: 'o1', content_id: 5, prop: 'private_reply', message: 'msg' });
   assert.equal(stripStats({ a: { stats: 1, b: 2 } }).a.stats, undefined);
 });
+
+test('0.2.0 conditions: one test, all, any, and a nested group', () => {
+  const c = compileSpec({ root: 'C', nodes: [
+    { caption: 'End', text: 'x' },
+    { caption: 'C', type: 'condition', else: 'End', conditions: [
+      { if: { system_field: 'email', op: 'HAS_VALUE' }, then: 'End' },
+      { if: { all: [{ system_field: 'email', op: 'HAS_VALUE' }, { tag: 'Keyword: Wizard' }] }, then: 'End' },
+      { if: { any: [{ tag: 'Keyword: Wizard' }, { field: 'MC Interest', op: 'IS', value: 'Wizard' }] }, then: 'End' },
+      { if: { all: [{ any: [{ tag: 'Keyword: Wizard' }, { tag: 'MC - Lead' }] }, { system_field: 'email', op: 'HAS_VALUE' }] }, then: 'End' },
+    ] },
+  ] }, { ns, resolvers: { ...resolvers, tagId: (n) => ({ 'keyword: wizard': 11, 'mc - lead': 12 }[String(n).toLowerCase()] ?? null) } });
+  const node = c.contents.find((x) => x.caption === 'C');
+  const [one, all, any, nested] = node.conditions.map((x) => x.filter);
+  assert.equal(one.groups.length, 1); assert.equal(one.groups[0].items.length, 1);
+  assert.equal(all.groups[0].operator, 'AND'); assert.equal(all.groups[0].items.length, 2);
+  assert.equal(any.groups[0].operator, 'OR'); assert.equal(any.groups[0].items.length, 2);
+  // a nested group becomes TWO groups joined by the outer operator
+  assert.equal(nested.operator, 'AND'); assert.equal(nested.groups.length, 2);
+  assert.equal(nested.groups[0].operator, 'OR'); assert.equal(nested.groups[0].items.length, 2);
+  assert.equal(nested.groups[1].items[0].field, 'email');
+  // the custom-field item is the STRING cuf_<id>, which is the shape the server demands
+  assert.equal(any.groups[0].items[1].field, 'cuf_102');
+});
+
+test('0.2.0 blocks: an uploaded attachment, cards and dynamic compile to the exporter shapes; a URL image is refused with the reason', () => {
+  const upload = { caid: 543813059, type: 'image', title: 'a.png', img_big: 'https://cdn.example/big.png' };
+  const c = compileSpec({ root: 'N', nodes: [
+    { caption: 'Next', text: 'x' },
+    { caption: 'N', type: 'message', blocks: [
+      { attachment: { type: 'image', data: upload } },
+      { cards: [{ title: 'One', subtitle: 'sub', image: upload, url: 'https://example.com', buttons: [{ caption: 'go', to: 'Next' }] }] },
+      { dynamic: { url: 'https://example.com/api', method: 'post', payload: { a: 1 }, fallback: 'Next' } },
+    ] },
+  ] }, { ns, resolvers });
+  const n = c.contents.find((x) => x.caption === 'N');
+  const [att, cards, dyn] = n.messages;
+  assert.equal(att.type, 'attachment'); assert.equal(att.content.type, 'image'); assert.equal(att.content.data.caid, 543813059);
+  assert.equal(cards.type, 'cards'); assert.equal(cards.elements[0].content.image.caid, 543813059);
+  assert.equal(cards.elements[0].default_action.url, 'https://example.com');
+  assert.equal(cards.elements[0].keyboard[0]._content_oid, c.captionToOid.Next);
+  assert.equal(dyn.type, 'dynamic'); assert.equal(dyn.method, 'post');
+  // payload reaches the wire as a STRING — an object fails with "Something went wrong" (live-proven)
+  assert.equal(typeof dyn.payload, 'string');
+  assert.deepEqual(JSON.parse(dyn.payload), { a: 1 });
+  assert.equal(dyn.fallback._content_oid, c.captionToOid.Next);
+
+  // A URL image is refused at compile time, naming the fix — the server would answer
+  // "Attachment without caid" (live-proven for every URL-only shape).
+  for (const blocks of [[{ image_url: 'https://example.com/a.png' }], [{ cards: [{ title: 'T', image_url: 'https://example.com/a.png' }] }]]) {
+    assert.throws(() => compileSpec({ root: 'N', nodes: [{ caption: 'N', type: 'message', blocks }] }, { ns, resolvers }),
+      (e) => /upload_attachment/.test(JSON.stringify(e.problems)));
+  }
+});
+
+test('0.2.0 actions: sequences, conversations, opt-ins, pause, events, menus and integrations', () => {
+  const c = compileSpec({ root: 'A', nodes: [{ caption: 'A', type: 'actions', actions: [
+    { add_to_sequence: 55 }, { remove_from_sequence: 56 },
+    { open_conversation: true }, { close_conversation: true }, { assign_conversation: { user_id: 9 } },
+    { set_optin: 'email' }, { set_optout: 'sms' },
+    { pause_automations: { duration: 3600 } }, { resume_automation: true },
+    { fire_custom_event: { event_id: 3, cost: 10 } }, { set_main_menu: 'content20260101010101_123456' },
+    { integration: { type: 'google_sheets', action: 'add_row', data: { spreadsheet: 's' } } },
+  ] }] }, { ns, resolvers });
+  const types = c.contents[0].actions.map((a) => a.type);
+  assert.deepEqual(types, ['add_to_sequence', 'remove_from_sequence', 'open_conversation', 'close_conversation', 'assign_conversation', 'set_email_optin', 'set_sms_optout', 'pause_automations', 'resume_automation', 'fire_custom_event', 'set_user_level_menu', 'google_sheets']);
+  assert.equal(c.contents[0].actions[0].sequence_id, 55);
+  assert.equal(c.contents[0].actions[7].pause_duration, 3600);
+  assert.equal(c.contents[0].actions[11].action, 'add_row');
+  // a bad integration name and a bad optin channel are named, not silently accepted
+  assert.throws(() => compileSpec({ root: 'A', nodes: [{ caption: 'A', type: 'actions', actions: [{ integration: { type: 'salesforce', action: 'x' } }] }] }, { ns, resolvers }),
+    (e) => /is not/.test(JSON.stringify(e.problems)));
+});
+
+test('0.2.0 ai node compiles with its prompt and default_target', () => {
+  const c = compileSpec({ root: 'Ask', nodes: [
+    { caption: 'End', text: 'x' },
+    { caption: 'Ask', type: 'ai', prompt: 'Answer using {{field:MC Offer URL}}', next: 'End' },
+  ] }, { ns, resolvers: { ...resolvers, fieldId: () => 101 } });
+  const n = c.contents.find((x) => x.caption === 'Ask');
+  assert.equal(n.type, 'ai_node');
+  assert.equal(n.prompt, 'Answer using {{cuf_101}}');
+  assert.equal(n.default_target._content_oid, c.captionToOid.End);
+  assert.deepEqual(n.abilities, []);
+});

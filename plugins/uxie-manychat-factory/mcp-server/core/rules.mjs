@@ -29,6 +29,10 @@ export const ADAPTERS = ['save_email_to_system_field', 'set_email_optin', 'save_
 export const SYSTEM_FIELDS = ['first_name', 'last_name', 'full_name', 'email', 'phone', 'subscribed', 'user_id', 'locale', 'language', 'timezone', 'last_interaction', 'last_ig_interaction', 'ig_window_open_until', 'last_wa_interaction', 'last_tg_interaction', 'last_seen', 'last_ig_seen', 'last_wa_seen', 'messaging_window', 'ig_messaging_window', 'gender', 'ig_followers_count', 'tg_user_id', 'ig_username', 'tg_username', 'wa_id', 'phone_country_code', 'phone_us_state', 'optin_phone', 'optout_phone', 'optin_email', 'optout_email', 'messenger', 'is_eu_affected', 'optin_instagram', 'is_ig_account_follower', 'is_ig_verified_user', 'is_ig_account_follow_user', 'is_ig_window_open', 'optin_telegram', 'optin_whatsapp'];
 export const STATIC_FIELDS = ['tag', 'widget', 'ads_growth_tool', 'opt_in_through_api', 'one_time_notification', 'one_time_notification_optin', 'sequence', 'system_current_datetime', 'smart_segment'];
 export const DELAY_UNITS = ['minutes', 'hours', 'days'];
+export const IG_ALLOWED_BLOCKS = ['text', 'attachment', 'quick_reply', 'question', 'delay', 'card', 'cards', 'dynamic', 'otn_request'];
+export const ATTACHMENT_TYPES = ['image', 'video', 'file', 'gif', 'external_image'];
+export const DYNAMIC_METHODS = ['get', 'post', 'put', 'delete'];
+export const INTEGRATION_ACTIONS = ['hubspot', 'convertkit', 'chatgpt', 'claude', 'deepseek', 'google_sheets', 'active_campaign', 'klaviyo', 'mailchimp'];
 export const NOTE_FONT_SIZES = ['small', 'large'];
 export const NOTE_SIZES = ['small', 'medium', 'large'];
 export const NOTE_COLORS = ['default', 'white', 'danger', 'success', 'info'];
@@ -109,18 +113,62 @@ export const RULES = Object.freeze({
   KEYWORDS_MAX_12: { layer: 'C', serverEnforced: false, clientMessage: 'No more than 12 keywords per rule', note: 'server accepted 13 (live-04)', toolBlocks: true },
   KEYWORD_RULES_MAX_5: { layer: 'C', serverEnforced: false, clientMessage: 'No more than 5 rules per keyword trigger' },
   KEYWORD_CHANNEL_UNKNOWN: { layer: 'C', serverEnforced: false, clientMessage: 'channel must be instagram, facebook, whatsapp, telegram, tiktok or sms', toolBlocks: true },
+  // Actions — required fields, client strings from common/actions/constants/Validation.js. The
+  // server side of these was not probed (an action missing its key was never published); the tool
+  // blocks them anyway because an action without its subject cannot do anything.
+  ACTION_TAG_REQUIRED: { layer: 'C', serverEnforced: null, clientMessage: 'Please select or create a tag', toolBlocks: true },
+  ACTION_SEQUENCE_REQUIRED: { layer: 'C', serverEnforced: null, clientMessage: 'Please select a sequence', toolBlocks: true },
+  ACTION_FIELD_REQUIRED: { layer: 'C', serverEnforced: null, clientMessage: 'Please select a custom user field to set', toolBlocks: true },
+  ACTION_FIELD_VALUE_REQUIRED: { layer: 'C', serverEnforced: null, clientMessage: 'Please enter a value for the custom user field', toolBlocks: true, note: 'the UI string is a translation key; the server accepts an empty value (it stores it)' },
+  ACTION_UNSET_FIELD_REQUIRED: { layer: 'C', serverEnforced: null, clientMessage: 'Please select a custom user field to unset', toolBlocks: true },
+  ACTION_START_FLOW_REQUIRED: { layer: 'C', serverEnforced: null, clientMessage: 'Please select Automation', toolBlocks: true },
+  ACTION_ASSIGN_REQUIRED: { layer: 'C', serverEnforced: null, clientMessage: 'Please choose a team member', toolBlocks: true },
+  ACTION_MAIN_MENU_REQUIRED: { layer: 'C', serverEnforced: null, clientMessage: 'Please select a Main Menu', toolBlocks: true },
+  ACTION_PAUSE_DURATION_REQUIRED: { layer: 'C', serverEnforced: null, clientMessage: 'Please enter a pause duration', toolBlocks: true },
+  ACTION_EVENT_REQUIRED: { layer: 'C', serverEnforced: null, clientMessage: 'Please enter a Conversion Event name', toolBlocks: true },
+  ACTION_INTEGRATION_ACTION_REQUIRED: { layer: 'C', serverEnforced: null, clientMessage: 'Please select an integration action', toolBlocks: true, note: 'every integration action (hubspot, convertkit, chatgpt, claude, deepseek, google_sheets, active_campaign, klaviyo, mailchimp) carries `action` + `data`' },
+  ACTION_CUSTOM_AUDIENCE_REQUIRED: { layer: 'C', serverEnforced: null, clientMessage: 'Please set up the custom audience action (ad account, audience, action)', toolBlocks: true },
+  ACTION_NOTIFY_TEXT_REQUIRED: { layer: 'C', serverEnforced: null, clientMessage: 'Notify admin needs a message text', toolBlocks: true },
+  // Blocks
+  IG_BLOCK_NOT_ALLOWED: { layer: 'C', serverEnforced: null, clientMessage: 'This block is not available on the Instagram channel', toolBlocks: true, note: 'InstagramNodeConfig allows text, attachment, quick_reply, question, delay, card, cards, dynamic, otn_request' },
+  ATTACHMENT_TYPE_INVALID: { layer: 'C', serverEnforced: null, clientMessage: 'attachment content.type must be image, video, file, gif or external_image', toolBlocks: true },
+  ATTACHMENT_NEEDS_CAID: { layer: 'S', serverEnforced: true, serverMessage: 'Attachment without caid', note: 'PROVEN 2026-09-03: an image ManyChat did not store is refused — the external_image shape its own exporter emits, a {type,url} object and a bare URL all fail. Upload it first (upload_attachment -> POST /content/upload) and pass the returned object, which carries caid.' },
+  DYNAMIC_PAYLOAD_NOT_STRING: { layer: 'S', serverEnforced: true, serverMessage: 'Something went wrong', note: 'PROVEN 2026-09-03: a dynamic block whose payload is an OBJECT fails; a JSON STRING or null is accepted. Same rule as external_request.' },
+  ATTACHMENT_URL_REQUIRED: { layer: 'C', serverEnforced: null, clientMessage: 'Please specify image URL', toolBlocks: true, note: 'external_image needs content.data.url; uploaded types need the object /content/upload returned' },
+  CARDS_EMPTY: { layer: 'C', serverEnforced: null, clientMessage: 'Please create at least one card', toolBlocks: true },
+  CARD_TITLE_REQUIRED: { layer: 'C', serverEnforced: null, clientMessage: 'Please enter a title', toolBlocks: true },
+  CARD_TITLE_OVER_80: { layer: 'C', serverEnforced: null, clientMessage: 'Title must be less than 80 characters long' },
+  CARD_SUBTITLE_OVER_80: { layer: 'C', serverEnforced: null, clientMessage: 'Subtitle must be less than 80 characters long' },
+  CARDS_MAX_10: { layer: 'C', serverEnforced: null, clientMessage: 'You can add only 10 cards', toolBlocks: true },
+  DYNAMIC_URL_REQUIRED: { layer: 'C', serverEnforced: null, clientMessage: 'Please enter a request URL', toolBlocks: true },
+  DYNAMIC_METHOD_INVALID: { layer: 'C', serverEnforced: null, clientMessage: 'method must be get, post, put or delete', toolBlocks: true, note: 'RequestMethodSchema in shared/api/requests/content/schemas.ts' },
+  AI_NODE_PROMPT_REQUIRED: { layer: 'C', serverEnforced: null, clientMessage: 'Please enter a prompt for the AI step', toolBlocks: true },
 });
 
 const fill = (tpl, vars) => String(tpl ?? '').replace(/\{(\w+)\}/g, (_, k) => String(vars?.[k] ?? `{${k}}`));
 
 class Findings {
-  constructor() { this.list = []; }
+  constructor({ allowUiWarnings = false } = {}) { this.list = []; this.allowUiWarnings = allowUiWarnings; }
   add(ruleId, where = {}, vars = {}) {
     const r = RULES[ruleId];
     if (!r) throw new Error(`unknown rule ${ruleId}`);
     const serverMessage = r.serverMessage ? fill(r.serverMessage, vars) : null;
     const clientMessage = r.clientMessage ? fill(r.clientMessage, vars) : null;
-    const blocking = r.serverEnforced === true || r.toolBlocks === true;
+    // POLICY (0.2.0): every rule whose string is KNOWN blocks — server-enforced (the publish would
+    // fail anyway) AND client-only (the API accepts it, but the builder shows a broken node and the
+    // channel may refuse it at send time: Instagram's DM cap is 1000 characters). Only rules the
+    // corpus never probed on either side (serverEnforced === null) stay warnings, and say so.
+    // `allowUiWarnings` demotes the client-only rows back to warnings for a caller who has decided
+    // a UI-broken node is acceptable — an explicit choice, never the default.
+    // Three independent reasons to block, in priority order:
+    //   serverEnforced === true  the publish would fail with this exact string
+    //   toolBlocks === true      the tool refuses by policy whatever the server does (an action with
+    //                            no subject, a trigger the UI could never activate) — this holds for
+    //                            unprobed rules too, which is why it is NOT nested under clientOnly
+    //   clientOnly               the API accepts it but the builder marks the node broken; blocks
+    //                            unless the caller opted into allowUiWarnings
+    const clientOnly = r.serverEnforced === false;
+    const blocking = r.serverEnforced === true || r.toolBlocks === true || (clientOnly && !this.allowUiWarnings);
     this.list.push({
       rule: ruleId,
       layer: r.layer,
@@ -140,9 +188,9 @@ class Findings {
     const warnings = this.list.filter((f) => !f.blocking);
     return { ok: blocking.length === 0, blocking, warnings, count: this.list.length,
       meaning: blocking.length
-        ? 'blocking = the server would refuse this (or the tool refuses it by policy); the message is what the server returns. Fix these before sending.'
+        ? 'blocking = a rule with a KNOWN string failed: serverEnforced:true means the server would refuse the publish with exactly that message; serverEnforced:false means ManyChat\'s API accepts it but its builder marks the node broken (and the channel may refuse it at send time), so the tool refuses it too unless allowUiWarnings:true. Fix these before sending.'
         : warnings.length
-          ? 'warnings = client-only rules the server ACCEPTS; the flow will publish but the builder UI will flag these nodes.'
+          ? 'warnings = rules the corpus has not probed on the server (serverEnforced:null), or client-only rules you demoted with allowUiWarnings. The publish will go through; read them.'
           : 'clean against every rule in the ledger — a 200 from publish still only proves what the server enforces (see serverEnforced per rule).' };
   }
 }
@@ -153,8 +201,8 @@ const hasContentId = (t) => t && typeof t === 'object' && t.content_id != null;
 
 // context: { commentTriggerAttached?: bool, userTagIds?: Set<number>, triggerTagIds?: Set<number>,
 //            fieldIds?: Set<number>, botFieldIds?: Set<number>, knownFlowNs?: Set<string>|null, channel?: 'instagram' }
-export function validateBatch({ contents, rootContent, context = {} }) {
-  const F = new Findings();
+export function validateBatch({ contents, rootContent, context = {}, allowUiWarnings = false }) {
+  const F = new Findings({ allowUiWarnings });
   const list = Array.isArray(contents) ? contents : [];
   const oids = new Map();
   for (const c of list) {
@@ -197,6 +245,36 @@ export function validateBatch({ contents, rootContent, context = {} }) {
       msgs.forEach((m, i) => {
         const mw = { ...where, block: i, blockType: m?.type ?? null };
         if (!m || !MESSAGE_TYPES.includes(m.type)) { F.add('MESSAGE_TYPE_UNKNOWN', mw, { detail: `block type "${m?.type}"` }); return; }
+        if (c.type === 'instagram' && !IG_ALLOWED_BLOCKS.includes(m.type)) F.add('IG_BLOCK_NOT_ALLOWED', mw, { detail: `block type "${m.type}"` });
+        if (m.type === 'attachment') {
+          const t = m.content?.type;
+          if (!ATTACHMENT_TYPES.includes(t)) F.add('ATTACHMENT_TYPE_INVALID', mw, { detail: `content.type "${t}"` });
+          else if (!m.content?.data) F.add('ATTACHMENT_URL_REQUIRED', mw);
+          else if (m.content.data.caid == null) F.add('ATTACHMENT_NEEDS_CAID', mw, { detail: t === 'external_image' ? 'external_image carries a url but no caid' : 'the attachment data has no caid' });
+          (m.keyboard ?? []).forEach((b, j) => checkButton(b, { ...mw, button: j }));
+        }
+        if (m.type === 'cards') {
+          const els = Array.isArray(m.elements) ? m.elements : [];
+          if (!els.length) F.add('CARDS_EMPTY', mw);
+          if (els.length > 10) F.add('CARDS_MAX_10', mw, { detail: `${els.length} cards` });
+          els.forEach((card, k) => {
+            const cw = { ...mw, card: k };
+            const title = String(card?.content?.title ?? '');
+            if (!title.trim()) F.add('CARD_TITLE_REQUIRED', cw);
+            else if (title.length > 80) F.add('CARD_TITLE_OVER_80', cw, { detail: `${title.length} chars` });
+            if (String(card?.content?.subtitle ?? '').length > 80) F.add('CARD_SUBTITLE_OVER_80', cw);
+            if (card?.content?.image && card.content.image.caid == null) F.add('ATTACHMENT_NEEDS_CAID', cw, { detail: 'a card image must be the object upload_attachment returned (it carries caid)' });
+            const kb = Array.isArray(card?.keyboard) ? card.keyboard : [];
+            if (kb.length > 3) F.add('BUTTONS_MAX_3', cw, { detail: `${kb.length} buttons` });
+            kb.forEach((b, j) => checkButton(b, { ...cw, button: j }));
+          });
+        }
+        if (m.type === 'dynamic') {
+          if (!String(m.url ?? '').trim()) F.add('DYNAMIC_URL_REQUIRED', mw);
+          if (!DYNAMIC_METHODS.includes(String(m.method ?? '').toLowerCase())) F.add('DYNAMIC_METHOD_INVALID', mw, { detail: `method "${m.method}"` });
+          if (m.payload != null && typeof m.payload !== 'string') F.add('DYNAMIC_PAYLOAD_NOT_STRING', mw, { detail: `payload is a ${Array.isArray(m.payload) ? 'array' : typeof m.payload}` });
+          if (m.fallback) checkTarget(m.fallback, { ...mw, key: 'fallback' });
+        }
         if (m.type === 'delay') { delayRun++; if (delayRun > 5) F.add('DELAYS_IN_A_ROW', mw); if (i === msgs.length - 1) F.add('DELAY_LAST', mw); }
         else delayRun = 0;
         if (m.type === 'text') {
@@ -245,6 +323,20 @@ export function validateBatch({ contents, rootContent, context = {} }) {
         const aw = { ...where, action: i, actionType: a?.type ?? null };
         if (a == null) { F.add('ACTION_NULL', aw); return; }
         if (!ACTION_TYPES.includes(a.type)) { F.add('ACTION_TYPE_UNSUPPORTED', aw, { detail: `type "${a.type}"` }); return; }
+        // Required subject per action type (common/actions/models/Action/validation.js).
+        if ((a.type === 'add_tag' || a.type === 'remove_tag') && !a.tag_id) F.add('ACTION_TAG_REQUIRED', aw);
+        if ((a.type === 'add_to_sequence' || a.type === 'remove_from_sequence') && !a.sequence_id) F.add('ACTION_SEQUENCE_REQUIRED', aw);
+        if ((a.type === 'set_custom_field_value' || a.type === 'change_global_field_value') && !a.field_id) F.add('ACTION_FIELD_REQUIRED', aw);
+        if ((a.type === 'set_custom_field_value' || a.type === 'change_global_field_value') && a.field_id && (a.value === undefined || a.value === null || a.value === '')) F.add('ACTION_FIELD_VALUE_REQUIRED', aw);
+        if (a.type === 'unset_custom_field_value' && !a.field_id) F.add('ACTION_UNSET_FIELD_REQUIRED', aw);
+        if (a.type === 'start_flow' && !a.flow_ns) F.add('ACTION_START_FLOW_REQUIRED', aw);
+        if (a.type === 'assign_conversation' && !a.user_id && !a.group_id) F.add('ACTION_ASSIGN_REQUIRED', aw);
+        if (a.type === 'set_user_level_menu' && !a.main_menu_flow_ns) F.add('ACTION_MAIN_MENU_REQUIRED', aw);
+        if (a.type === 'pause_automations' && !a.pause_duration) F.add('ACTION_PAUSE_DURATION_REQUIRED', aw);
+        if (a.type === 'fire_custom_event' && !a.event_id) F.add('ACTION_EVENT_REQUIRED', aw);
+        if (INTEGRATION_ACTIONS.includes(a.type) && !a.action) F.add('ACTION_INTEGRATION_ACTION_REQUIRED', aw, { detail: `${a.type} without \`action\`` });
+        if ((a.type === 'custom_audience_user' || a.type === 'custom_audience_ig_user') && !(a.ad_account_id && a.custom_audience_id && a.action)) F.add('ACTION_CUSTOM_AUDIENCE_REQUIRED', aw);
+        if (a.type === 'notify_admin' && !String(a.text ?? '').trim()) F.add('ACTION_NOTIFY_TEXT_REQUIRED', aw);
         if (a.type === 'add_tag' || a.type === 'remove_tag') {
           const id = Number(a.tag_id);
           if (context.triggerTagIds?.has(id)) F.add('TAG_WRONG', aw, { detail: `tag ${id} is a trigger auto-tag` });
@@ -313,6 +405,11 @@ export function validateBatch({ contents, rootContent, context = {} }) {
       else if (context.knownFlowNs && !context.knownFlowNs.has(ns)) F.add('GOTO_FLOW_WRONG', where, { detail: `flow ${ns} is not on this account` });
     }
 
+    if (c.type === 'ai_node') {
+      if (!String(c.prompt ?? '').trim()) F.add('AI_NODE_PROMPT_REQUIRED', where);
+      if (c.default_target) checkTarget(c.default_target, { ...where, key: 'default_target' });
+    }
+
     if (c.type === 'note') {
       const n = c.note ?? {};
       if (n.font_size != null && !NOTE_FONT_SIZES.includes(n.font_size)) F.add('NOTE_FONT_SIZE', where, { detail: n.font_size });
@@ -325,8 +422,8 @@ export function validateBatch({ contents, rootContent, context = {} }) {
 }
 
 // Comment-trigger widget `data` (feed_comment_trigger, Instagram).
-export function validateWidgetData(data = {}) {
-  const F = new Findings();
+export function validateWidgetData(data = {}, { allowUiWarnings = false } = {}) {
+  const F = new Findings({ allowUiWarnings });
   const s = data.feed_comment_settings ?? {};
   const w = data.feed_comment_welcome ?? {};
   if (s.post_covered_area == null) F.add('WIDGET_AREA_MISSING', { key: 'feed_comment_settings.post_covered_area' });
@@ -343,8 +440,8 @@ export function validateWidgetData(data = {}) {
 }
 
 // DM keyword trigger rules.
-export function validateKeywordRules({ keyword_rules, channel }) {
-  const F = new Findings();
+export function validateKeywordRules({ keyword_rules, channel, allowUiWarnings = false }) {
+  const F = new Findings({ allowUiWarnings });
   const rules = Array.isArray(keyword_rules) ? keyword_rules : [];
   if (channel && !['instagram', 'facebook', 'whatsapp', 'telegram', 'tiktok', 'sms'].includes(channel)) F.add('KEYWORD_CHANNEL_UNKNOWN', { key: 'channel' }, { detail: String(channel) });
   if (rules.length > 5) F.add('KEYWORD_RULES_MAX_5', { key: 'keyword_rules' }, { detail: `${rules.length} rules` });

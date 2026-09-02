@@ -12,6 +12,7 @@ import { makeInternalGateway, makePublicGateway } from './gateway.mjs';
 import { validateBatch, validateKeywordRules, validateWidgetData, ruleTable, POST_COVERED_AREAS, COMMENT_CONTAINS, KEYWORD_CONDITIONS, WIDGET_STATUSES, KEYWORD_STATUSES, COMMENT_TRIGGER_WIDGET_TYPES } from './rules.mjs';
 import { captionErrors, draftToBatch, duplicateOids, layoutCoordinates, publishedToBatch, summarizeContents, stripStats, uuid } from './flow-model.mjs';
 import { CompileError, compileSpec } from './build-flow.mjs';
+import { EditError, applyOps } from './edit-flow.mjs';
 import { describeEndpoint, endpoints, searchEndpoints } from './catalog.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -34,6 +35,7 @@ const schema = (shape) => { const s = z.object(shape).passthrough(); SCHEMA_KEYS
 const fromThrown = (e) => {
   if (e instanceof SessionError || (e?.code && e?.remediation)) return fail(e.code, e.detail ?? e.message, e.remediation);
   if (e instanceof CompileError) return fail(CODES.VALIDATION_FAILED, `spec has ${e.problems.length} problem(s)`, 'Fix every listed problem and retry; nothing was sent.', { problems: e.problems });
+  if (e instanceof EditError) return fail(CODES.VALIDATION_FAILED, `edit has ${e.problems.length} problem(s)`, 'Fix every listed problem and retry; nothing was sent and the flow is untouched.', { problems: e.problems });
   return fail(CODES.ENGINE_ABORT, e?.message ?? String(e), 'Unexpected failure — inspect detail; nothing more was sent.');
 };
 const guard = async (fn) => { try { return await fn(); } catch (e) { return fromThrown(e); } };
@@ -162,6 +164,8 @@ function verifyPublished(sent, root, flow) {
   return { matches: !missing.length && !typeMismatch.length && Boolean(rootNode) && !flow.has_unpublished_changes, missing, typeMismatch, rootStored: rootNode ? { caption: rootNode.caption, content_id: rootNode.content_id } : null, has_unpublished_changes: flow.has_unpublished_changes, storedCount: pub.contents.length };
 }
 
+const MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', mp4: 'video/mp4', mov: 'video/quicktime', pdf: 'application/pdf', mp3: 'audio/mpeg' };
+
 const CONFIRM = (what, preview) => fail(CODES.CONFIRM_REQUIRED, `${what} — nothing was sent.`, 'Review data.preview, then repeat the same call with confirm:true. Only do so if the user asked for this in THIS session.', { preview });
 
 // ── TOOLS ─────────────────────────────────────────────────────────────────────────────────
@@ -243,7 +247,7 @@ export const TOOLS = [
   {
     name: 'set_flow_draft',
     description: describe('set_flow_draft', 'REPLACE the whole draft (flow/setDraft) with a contents batch. ManyChat validates NOTHING here — garbage is stored and shown as broken nodes — so the ledger runs first and refuses server-enforced failures unless skipValidation:true. Reads back has_unpublished_changes.'),
-    inputSchema: schema({ ns: z.string(), contents: z.array(z.unknown()), root_content: z.union([z.string(), z.number()]).optional(), coordinates: z.record(z.string(), z.unknown()).optional(), skipValidation: z.boolean().default(false), accountId: z.string().optional() }),
+    inputSchema: schema({ ns: z.string(), contents: z.array(z.unknown()), root_content: z.union([z.string(), z.number()]).optional(), coordinates: z.record(z.string(), z.unknown()).optional(), skipValidation: z.boolean().default(false), allowUiWarnings: z.boolean().default(false).describe('demote the client-only rules (the API accepts them; ManyChat\'s builder marks the node broken and a channel may refuse it at send time) from blocking to warnings — an explicit choice, never the default'),  accountId: z.string().optional() }),
     capabilities: [{ rail: 'internal', method: 'POST', path: '/flow/setDraft' }, { rail: 'internal', method: 'GET', path: '/flow/getFlowData' }],
     handler: async (args, deps) => draftWrite('setDraft', args, deps),
   },
@@ -257,7 +261,7 @@ export const TOOLS = [
   {
     name: 'check_flow',
     description: describe('check_flow', 'Run the validation ledger (ManyChat\'s own publish rules, server-vs-client marked) over a batch or over a flow\'s current draft/published contents WITHOUT sending anything. Also returns the rule table on request.'),
-    inputSchema: schema({ ns: z.string().optional(), contents: z.array(z.unknown()).optional(), root_content: z.union([z.string(), z.number()]).optional(), commentTriggerAttached: z.boolean().optional().describe('override; default = whether the flow has a comment/story widget'), rules: z.boolean().default(false).describe('include the full rule table'), accountId: z.string().optional() }),
+    inputSchema: schema({ ns: z.string().optional(), contents: z.array(z.unknown()).optional(), root_content: z.union([z.string(), z.number()]).optional(), commentTriggerAttached: z.boolean().optional().describe('override; default = whether the flow has a comment/story widget'), rules: z.boolean().default(false).describe('include the full rule table'), allowUiWarnings: z.boolean().default(false).describe('demote the client-only rules (the API accepts them; ManyChat\'s builder marks the node broken and a channel may refuse it at send time) from blocking to warnings — an explicit choice, never the default'), accountId: z.string().optional() }),
     capabilities: [{ rail: 'internal', method: 'GET', path: '/flow/getFlowData' }, { rail: 'internal', method: 'GET', path: '/tags/list' }, { rail: 'internal', method: 'GET', path: '/customFields/list' }, { rail: 'internal', method: 'GET', path: '/globalFields/list' }, { rail: 'internal', method: 'GET', path: '/growth-tools/list' }, { rail: 'internal', method: 'GET', path: '/cms/getFlows' }],
     handler: async (args, deps) => guard(async () => {
       const gw = deps.makeGw({ accountId: args.accountId });
@@ -270,14 +274,14 @@ export const TOOLS = [
         attached ??= flowSummary(r.flow, { contents: false }).triggers.commentTriggerAttached;
       }
       const ctx = await ledgerContext(gw, { flows: true }); if (ctx.bad) return ctx.bad;
-      const result = validateBatch({ contents, rootContent: root, context: { ...ctx, commentTriggerAttached: attached ?? false, channel: 'instagram' } });
+      const result = validateBatch({ contents, rootContent: root, context: { ...ctx, commentTriggerAttached: attached ?? false, channel: 'instagram' }, allowUiWarnings: args.allowUiWarnings === true });
       return ok({ ...result, commentTriggerAttached: attached ?? false, ...(args.rules ? { rules: ruleTable() } : {}) });
     }),
   },
   {
     name: 'publish_flow',
     description: describe('publish_flow', 'Publish (flow/publish): the batch you pass, or the flow\'s current draft. Runs the ledger FIRST so every server-enforced problem appears at once (keyed by caption) instead of one per call; refuses on a blocking finding unless skipValidation:true. Upserts by _oid/content_id; content_node_errors come back keyed by caption. Reads the flow back on a separate request and verifies what landed.'),
-    inputSchema: schema({ ns: z.string(), contents: z.array(z.unknown()).optional().describe('omit to publish the flow\'s current draft_batch'), root_content: z.union([z.string(), z.number()]).optional(), coordinates: z.record(z.string(), z.unknown()).optional(), skipValidation: z.boolean().default(false), accountId: z.string().optional() }),
+    inputSchema: schema({ ns: z.string(), contents: z.array(z.unknown()).optional().describe('omit to publish the flow\'s current draft_batch'), root_content: z.union([z.string(), z.number()]).optional(), coordinates: z.record(z.string(), z.unknown()).optional(), skipValidation: z.boolean().default(false), allowUiWarnings: z.boolean().default(false).describe('demote the client-only rules (the API accepts them; ManyChat\'s builder marks the node broken and a channel may refuse it at send time) from blocking to warnings — an explicit choice, never the default'),  accountId: z.string().optional() }),
     capabilities: [{ rail: 'internal', method: 'GET', path: '/flow/getFlowData' }, { rail: 'internal', method: 'POST', path: '/flow/publish' }],
     handler: async (args, deps) => guard(async () => {
       const gw = deps.makeGw({ accountId: args.accountId });
@@ -296,7 +300,7 @@ export const TOOLS = [
       let ledger = null;
       if (!args.skipValidation) {
         const ctx = await ledgerContext(gw, { flows: true }); if (ctx.bad) return ctx.bad;
-        ledger = validateBatch({ contents, rootContent: root, context: { ...ctx, commentTriggerAttached: summary.triggers.commentTriggerAttached, channel: 'instagram' } });
+        ledger = validateBatch({ contents, rootContent: root, context: { ...ctx, commentTriggerAttached: summary.triggers.commentTriggerAttached, channel: 'instagram' }, allowUiWarnings: args.allowUiWarnings === true });
         const refusal = ledgerRefusal(ledger, 'publish'); if (refusal) return refusal;
       }
       const p = await publishBatch(gw, { ns: args.ns, contents, root, coordinates, tag: 'publish' });
@@ -355,7 +359,7 @@ export const TOOLS = [
   {
     name: 'build_flow',
     description: describe('build_flow', 'Compile a compact caption-addressed spec into a ManyChat batch (fresh _oids, names resolved to tag/field/bot-field ids, {{field:Name}}/{{bot:Name}} tokens), run the ledger — including the comment-reply root rules — then create the flow (unless ns is given), publish (or setDraft when publish:false), read back and verify. dryRun returns the compiled batch and findings without touching the account. Spec format is in the manychat-automation-specialist skill and in core/build-flow.mjs.'),
-    inputSchema: schema({ spec: z.record(z.string(), z.unknown()).describe('{root, nodes:[{caption,type,…}], channel?}'), name: z.string().optional().describe('flow name when creating'), ns: z.string().optional().describe('existing flow to (re)build into'), path: z.string().default('/'), publish: z.boolean().default(true), commentTrigger: z.boolean().default(false).describe('true = validate as if a comment/story trigger will be attached (root must be a private reply)'), dryRun: z.boolean().default(false), accountId: z.string().optional() }),
+    inputSchema: schema({ spec: z.record(z.string(), z.unknown()).describe('{root, nodes:[{caption,type,…}], channel?}'), name: z.string().optional().describe('flow name when creating'), ns: z.string().optional().describe('existing flow to (re)build into'), path: z.string().default('/'), publish: z.boolean().default(true), commentTrigger: z.boolean().default(false).describe('true = validate as if a comment/story trigger will be attached (root must be a private reply)'), dryRun: z.boolean().default(false), allowUiWarnings: z.boolean().default(false).describe('demote the client-only rules (the API accepts them; ManyChat\'s builder marks the node broken and a channel may refuse it at send time) from blocking to warnings — an explicit choice, never the default'), accountId: z.string().optional() }),
     capabilities: [{ rail: 'internal', method: 'GET', path: '/tags/list' }, { rail: 'internal', method: 'GET', path: '/customFields/list' }, { rail: 'internal', method: 'GET', path: '/globalFields/list' }, { rail: 'internal', method: 'GET', path: '/growth-tools/list' }, { rail: 'internal', method: 'GET', path: '/cms/getFlows' }, { rail: 'internal', method: 'POST', path: '/cms/createFlow' }, { rail: 'internal', method: 'POST', path: '/flow/publish' }, { rail: 'internal', method: 'POST', path: '/flow/setDraft' }, { rail: 'internal', method: 'GET', path: '/flow/getFlowData' }],
     handler: async (args, deps) => guard(async () => {
       const gw = deps.makeGw({ accountId: args.accountId });
@@ -367,7 +371,7 @@ export const TOOLS = [
       catch (e) { return fromThrown(e); }
       let attached = args.commentTrigger;
       if (args.ns) { const r = await readFlow(gw, args.ns); if (r.bad) return r.bad; attached = attached || flowSummary(r.flow, { contents: false }).triggers.commentTriggerAttached; }
-      const ledger = validateBatch({ contents: compiled.contents, rootContent: compiled.root, context: { ...ctx, commentTriggerAttached: attached, channel: 'instagram' } });
+      const ledger = validateBatch({ contents: compiled.contents, rootContent: compiled.root, context: { ...ctx, commentTriggerAttached: attached, channel: 'instagram' }, allowUiWarnings: args.allowUiWarnings === true });
       const refusal = ledgerRefusal(ledger, args.publish === false ? 'the draft (on a later publish)' : 'publish');
       const layout = layoutCoordinates(compiled.contents, compiled.root);
       if (args.dryRun || refusal) {
@@ -409,7 +413,7 @@ export const TOOLS = [
   {
     name: 'create_comment_trigger',
     description: describe('create_comment_trigger', 'Attach an Instagram comment trigger to a flow: the createWidget → setFlow → setWidget → setDraftStatus(draft) dance in one call, then loadWidget read-back. post_covered_area is REQUIRED (all_posts | specific_post + post_id | next_post). Always ends in DRAFT. Warns that createWidget also mints a stray "Opt-In Message" flow (its ns is returned — never deleted). Validates the widget data (ledger) and reminds you of the flow\'s private-reply root rule.'),
-    inputSchema: schema({ ns: z.string(), keywords: z.array(z.string()).default([]), post_covered_area: z.string().describe('all_posts | specific_post | next_post'), post_id: z.union([z.string(), z.number()]).optional(), public_replies: z.array(z.string()).default([]).describe('rotating public comment replies; the UI wants ≥ 3 unique'), name: z.string().optional(), exclude_keywords: z.array(z.string()).default([]), comment_contains: z.string().default('specific_words'), like_comment: z.boolean().default(false), track_root_comment_only: z.boolean().default(false), skipValidation: z.boolean().default(false), accountId: z.string().optional() }),
+    inputSchema: schema({ ns: z.string(), keywords: z.array(z.string()).default([]), post_covered_area: z.string().describe('all_posts | specific_post | next_post'), post_id: z.union([z.string(), z.number()]).optional(), public_replies: z.array(z.string()).default([]).describe('rotating public comment replies; the UI wants ≥ 3 unique'), name: z.string().optional(), exclude_keywords: z.array(z.string()).default([]), comment_contains: z.string().default('specific_words'), like_comment: z.boolean().default(false), track_root_comment_only: z.boolean().default(false), skipValidation: z.boolean().default(false), allowUiWarnings: z.boolean().default(false).describe('demote the client-only rules (the API accepts them; ManyChat\'s builder marks the node broken and a channel may refuse it at send time) from blocking to warnings — an explicit choice, never the default'), accountId: z.string().optional() }),
     capabilities: [{ rail: 'internal', method: 'POST', path: '/growth-tools/createWidget' }, { rail: 'internal', method: 'POST', path: '/growth-tools/setFlow' }, { rail: 'internal', method: 'POST', path: '/growth-tools/setWidget' }, { rail: 'internal', method: 'POST', path: '/growth-tools/setDraftStatus' }, { rail: 'internal', method: 'GET', path: '/growth-tools/loadWidget' }, { rail: 'internal', method: 'GET', path: '/flow/getFlowData' }],
     handler: async (args, deps) => guard(async () => {
       const gw = deps.makeGw({ accountId: args.accountId });
@@ -418,7 +422,7 @@ export const TOOLS = [
         feed_comment_welcome: { public_reply_messages: args.public_replies ?? [], like_user_comment: Boolean(args.like_comment) },
         actions: { opt_in_status: 'do_not_send' },
       };
-      const ledger = validateWidgetData(data);
+      const ledger = validateWidgetData(data, { allowUiWarnings: args.allowUiWarnings === true });
       if (!args.skipValidation) { const refusal = ledgerRefusal(ledger, 'the trigger'); if (refusal) return refusal; }
       const r = await readFlow(gw, args.ns); if (r.bad) return r.bad;
       const cw = await mc(gw, 'POST', '/growth-tools/createWidget', undefined, { query: { widget_type: 'feed_comment_trigger', name: args.name ?? r.flow.name, ns: args.ns, channel: 'instagram' } });
@@ -452,11 +456,11 @@ export const TOOLS = [
   {
     name: 'create_dm_keyword',
     description: describe('create_dm_keyword', 'Create a DRAFT DM keyword trigger bound to a flow (keywords/createDraft) and read it back (keywords/get). Refuses system keywords (start/stop/subscribe/unsubscribe — the server says "Trying to rewrite system keyword rule"), unknown conditions (the server 500s) and more than 12 keywords per rule.'),
-    inputSchema: schema({ ns: z.string(), keyword_rules: z.array(z.object({ condition: z.string(), keywords: z.array(z.string()).default([]) }).passthrough()).describe('condition ∈ equals|contains|word_match|starts|not_contains|any_message|thumbs_up'), channel: z.string().default('instagram'), skipValidation: z.boolean().default(false), accountId: z.string().optional() }),
+    inputSchema: schema({ ns: z.string(), keyword_rules: z.array(z.object({ condition: z.string(), keywords: z.array(z.string()).default([]) }).passthrough()).describe('condition ∈ equals|contains|word_match|starts|not_contains|any_message|thumbs_up'), channel: z.string().default('instagram'), skipValidation: z.boolean().default(false), allowUiWarnings: z.boolean().default(false).describe('demote the client-only rules (the API accepts them; ManyChat\'s builder marks the node broken and a channel may refuse it at send time) from blocking to warnings — an explicit choice, never the default'), accountId: z.string().optional() }),
     capabilities: [{ rail: 'internal', method: 'POST', path: '/keywords/createDraft' }, { rail: 'internal', method: 'GET', path: '/keywords/get' }],
     handler: async (args, deps) => guard(async () => {
       const gw = deps.makeGw({ accountId: args.accountId });
-      const ledger = validateKeywordRules({ keyword_rules: args.keyword_rules, channel: args.channel ?? 'instagram' });
+      const ledger = validateKeywordRules({ keyword_rules: args.keyword_rules, channel: args.channel ?? 'instagram', allowUiWarnings: args.allowUiWarnings === true });
       if (!args.skipValidation) { const refusal = ledgerRefusal(ledger, 'the keyword rule'); if (refusal) return refusal; }
       const { res, bad } = await mc(gw, 'POST', '/keywords/createDraft', { ns: args.ns, channel: args.channel ?? 'instagram', keyword_rules: args.keyword_rules }, { query: { client_id: uuid() } });
       if (bad) return bad;
@@ -625,6 +629,79 @@ export const TOOLS = [
       return ok({ minted: true, replaced: Boolean(existing), storedIn: deps.state.sessionFile, verified: { page: { id: probe.json?.data?.id ?? null, name: probe.json?.data?.name ?? null } }, note: 'the key itself is never returned; the public-rail tools read it from the session file' });
     }),
   },
+  {
+    name: 'edit_flow',
+    description: describe('edit_flow', 'Edit a PUBLISHED flow with caption-addressed operations instead of hand-writing node JSON: set_text, set_caption, set_next, set_private_reply, add/set/remove_button, set_quick_replies, add/replace/remove_block, set/add/remove_action, set_conditions, set_delay, set_split, set_goto, set_prompt, add_node, remove_node (with rewire), set_root. Reads the flow, applies the ops to its published batch, runs the SAME ledger publish_flow runs, republishes as an upsert, then reads back and verifies. dryRun returns the resulting batch and findings without sending. Nothing is deleted: remove_node marks removed:true and refuses to orphan an edge unless you say where it should point.'),
+    inputSchema: schema({
+      ns: z.string(),
+      ops: z.array(z.record(z.string(), z.unknown())).describe('operations in order; each names its node by caption'),
+      dryRun: z.boolean().default(false),
+      relayout: z.boolean().default(false).describe('re-run the BFS canvas layout after the edit (nodes added by an edit otherwise stack at the origin)'),
+      allowUiWarnings: z.boolean().default(false),
+      skipValidation: z.boolean().default(false),
+      accountId: z.string().optional(),
+    }),
+    capabilities: [{ rail: 'internal', method: 'GET', path: '/flow/getFlowData' }, { rail: 'internal', method: 'GET', path: '/tags/list' }, { rail: 'internal', method: 'GET', path: '/customFields/list' }, { rail: 'internal', method: 'GET', path: '/globalFields/list' }, { rail: 'internal', method: 'GET', path: '/growth-tools/list' }, { rail: 'internal', method: 'GET', path: '/cms/getFlows' }, { rail: 'internal', method: 'POST', path: '/flow/publish' }],
+    handler: async (args, deps) => guard(async () => {
+      const gw = deps.makeGw({ accountId: args.accountId });
+      const r = await readFlow(gw, args.ns); if (r.bad) return r.bad;
+      if (!r.flow.has_published_content) return fail(CODES.VALIDATION_FAILED, `flow ${args.ns} has no published content to edit`, 'Build it first (build_flow), or write the draft with set_flow_draft.');
+      const summary = flowSummary(r.flow, { contents: false });
+      const batch = publishedToBatch(r.flow);
+      const ctx = await ledgerContext(gw, { flows: true }); if (ctx.bad) return ctx.bad;
+      let edited;
+      try { edited = applyOps({ batch, ops: args.ops ?? [], ns: args.ns, resolvers: resolversFrom(ctx) }); }
+      catch (e) { return fromThrown(e); }
+      let ledger = null;
+      if (!args.skipValidation) {
+        ledger = validateBatch({ contents: edited.contents, rootContent: edited.root, context: { ...ctx, commentTriggerAttached: summary.triggers.commentTriggerAttached, channel: 'instagram' }, allowUiWarnings: args.allowUiWarnings === true });
+        const refusal = ledgerRefusal(ledger, 'the edited flow'); if (refusal) return { ...refusal, data: { ...refusal.data, summary: edited.summary } };
+      }
+      const coordinates = args.relayout
+        ? layoutCoordinates(edited.contents.filter((c) => !c.removed), edited.root).coords
+        : (r.flow.draft_coordinates ?? undefined);
+      if (args.dryRun) return ok({ ns: args.ns, dryRun: true, summary: edited.summary, ledger, batch: { root: edited.root, contents: edited.contents }, coordinates });
+      const p = await publishBatch(gw, { ns: args.ns, contents: edited.contents, root: edited.root, coordinates, tag: 'edit' });
+      if (p.bad) return { ...p.bad, data: { ...(p.bad.data ?? {}), summary: edited.summary } };
+      const verify = verifyPublished(edited.contents, edited.root, p.flow);
+      return ok({ ns: args.ns, summary: edited.summary, verify, warnings: ledger?.warnings ?? [], readBack: flowSummary(p.flow) });
+    }),
+  },
+  {
+    name: 'upload_attachment',
+    description: describe('upload_attachment', 'Upload a local image, video, file or gif to the account (POST /content/upload, multipart) and return the attachment object a message block needs. Pass that object back as blocks:[{attachment:{type,data}}]. For an image you can already reach by URL, skip this and use {image_url} — ManyChat sends it as an external image with no upload.'),
+    inputSchema: schema({ path: z.string().describe('absolute path to the local file'), type: z.string().default('image').describe('image | video | file | gif'), accountId: z.string().optional() }),
+    capabilities: [{ rail: 'internal', method: 'POST', path: '/content/upload' }],
+    handler: async (args, deps) => guard(async () => {
+      const type = String(args.type ?? 'image');
+      if (!['image', 'video', 'file', 'gif'].includes(type)) return fail(CODES.VALIDATION_FAILED, 'type must be image, video, file or gif (value withheld)', 'Pass one of the four.');
+      let bytes;
+      try { bytes = readFileSync(args.path); }
+      catch (e) { return fail(CODES.VALIDATION_FAILED, `cannot read ${args.path}: ${e.code ?? e.message}`, 'Pass an absolute path to a readable local file.'); }
+      const gw = deps.makeGw({ accountId: args.accountId });
+      // The field name is the INDEX, not "file": ManyChat's own uploader does `body.append('0', file)`
+      // (apps/easyBuilder/.../DmGalleryImageUploader.tsx; the builder's multi-file path appends '0',
+      // '1', …). Sending it as `file` returned `Uploaded file is not an image`, which reads like a
+      // bad file and is really a field-name mismatch. The MIME type must be set on the part too.
+      const name = args.path.split('/').pop();
+      const mime = MIME[name.split('.').pop()?.toLowerCase()] ?? (type === 'image' ? 'image/png' : 'application/octet-stream');
+      const form = new FormData();
+      form.append('0', new Blob([bytes], { type: mime }), name);
+      const { res, bad } = await mc(gw, 'POST', '/content/upload', form);
+      if (bad) return bad;
+      const attachment = res.json?.attachment;
+      if (!attachment) return fail(CODES.ENGINE_ABORT, 'upload answered 200 without an attachment', 'Inspect data.response.', { response: res.json });
+      return ok({
+        attachment,
+        type,
+        useAs: {
+          block: { attachment: { type, data: attachment } },
+          cardImage: attachment,
+        },
+        note: 'pass useAs.block into a blocks list, or useAs.cardImage as a card\'s `image`. ManyChat refuses an image it did not store: a URL-only block fails with "Attachment without caid".',
+      });
+    }),
+  },
   // ── public rail ──────────────────────────────────────────────────────────────────────
   {
     name: 'get_contact',
@@ -768,7 +845,7 @@ async function draftWrite(op, args, deps) {
     const root = args.root_content ?? r.flow.root_content_id ?? contents[0]?._oid ?? null;
     let ledger = null;
     const ctx = await ledgerContext(gw, { flows: true }); if (ctx.bad) return ctx.bad;
-    ledger = validateBatch({ contents, rootContent: root, context: { ...ctx, commentTriggerAttached: flowSummary(r.flow, { contents: false }).triggers.commentTriggerAttached, channel: 'instagram' } });
+    ledger = validateBatch({ contents, rootContent: root, context: { ...ctx, commentTriggerAttached: flowSummary(r.flow, { contents: false }).triggers.commentTriggerAttached, channel: 'instagram' }, allowUiWarnings: args.allowUiWarnings === true });
     if (!args.skipValidation) { const refusal = ledgerRefusal(ledger, 'a later publish'); if (refusal) return refusal; }
     const { res, bad } = await mc(gw, 'POST', `/flow/${op}`, { ns: args.ns, batch: { contents, root_content: root }, coordinates: args.coordinates ?? {}, client_id: clientId(op) });
     if (bad) return bad;

@@ -48,7 +48,10 @@ test('server-enforced message rules block; client-only rules warn', () => {
   const r = validateBatch({ contents: [n], rootContent: n._oid, context: ctx });
   const ids = ruleIds(r);
   for (const must of ['TEXT_REQUIRED', 'BUTTONS_MAX_3', 'BUTTON_CAPTION_REQUIRED', 'QUESTION_TEXT_REQUIRED', 'ANSWER_TYPE_UNSUPPORTED', 'QR_AFTER_QUESTION', 'TARGET_NOT_IN_BATCH']) assert.ok(r.blocking.some((f) => f.rule === must), must);
-  assert.ok(r.warnings.some((f) => f.rule === 'TEXT_OVER_1000'));
+  // 0.2.0: a client-only rule with a KNOWN string BLOCKS. Instagram's own DM cap is 1000, so a
+  // 1500-character text publishes through the API and then fails at send time.
+  assert.ok(r.blocking.some((f) => f.rule === 'TEXT_OVER_1000'), 'client-only rules block by default');
+  assert.equal(r.blocking.find((f) => f.rule === 'TEXT_OVER_1000').serverEnforced, false);
   assert.equal(r.blocking.find((f) => f.rule === 'ANSWER_TYPE_UNSUPPORTED').message, 'Answer type bogus is unsupported');
   assert.ok(ids.includes('BUTTONS_MAX_3'));
 });
@@ -64,8 +67,8 @@ test('action, condition, split, delay, goto and note rules', () => {
   const r = validateBatch({ contents: [a, c, s, d, g, n], rootContent: a._oid, context: ctx });
   const msgs = r.blocking.map((f) => f.message);
   for (const m of ['Wrong tag', 'Wrong field', 'url cannot be empty', 'Unsupported action type', 'Field item not found: nope', 'Unsupported operator WAT', 'Wrong field format: 10', 'Field must be a string', 'Percents sum must be equal to 100', 'Invalid unit', 'Wrong content provided.', 'Wrong font size', 'Wrong note size', 'Wrong note color']) assert.ok(msgs.includes(m), m);
-  assert.ok(r.warnings.some((f) => f.rule === 'EXTERNAL_PAYLOAD_JSON'));
-  assert.ok(r.warnings.some((f) => f.rule === 'CONDITION_NO_TARGET'));
+  assert.ok(r.blocking.some((f) => f.rule === 'EXTERNAL_PAYLOAD_JSON'));
+  assert.ok(r.blocking.some((f) => f.rule === 'CONDITION_NO_TARGET'));
 });
 
 test('duplicate _oids and a missing root are blocking', () => {
@@ -79,9 +82,13 @@ test('duplicate _oids and a missing root are blocking', () => {
 test('widget data: area required, specific_post needs a post, replies and keywords are client-only', () => {
   const r = validateWidgetData({ feed_comment_settings: { post_covered_area: 'specific_post', post_id: 0, comment_contains: 'specific_words', include_keywords_array: [] }, feed_comment_welcome: { public_reply_messages: ['a', 'a'] } });
   assert.ok(r.blocking.some((f) => f.message === 'Please select a post to track comments'));
-  assert.ok(r.warnings.some((f) => f.rule === 'WIDGET_KEYWORDS_REQUIRED'));
-  assert.ok(r.warnings.some((f) => f.rule === 'WIDGET_REPLIES_MIN_3'));
-  assert.ok(r.warnings.some((f) => f.rule === 'WIDGET_REPLIES_UNIQUE'));
+  assert.ok(r.blocking.some((f) => f.rule === 'WIDGET_KEYWORDS_REQUIRED'));
+  assert.ok(r.blocking.some((f) => f.rule === 'WIDGET_REPLIES_MIN_3'));
+  assert.ok(r.blocking.some((f) => f.rule === 'WIDGET_REPLIES_UNIQUE'));
+  // …and allowUiWarnings puts the client-only ones back to advisory, without touching the server rows.
+  const lenient = validateWidgetData({ feed_comment_settings: { post_covered_area: 'specific_post', post_id: 0, comment_contains: 'specific_words', include_keywords_array: [] }, feed_comment_welcome: { public_reply_messages: ['a', 'a'] } }, { allowUiWarnings: true });
+  assert.ok(lenient.warnings.some((f) => f.rule === 'WIDGET_REPLIES_MIN_3'));
+  assert.ok(lenient.blocking.some((f) => f.message === 'Please select a post to track comments'), 'a server rule still blocks');
   assert.ok(validateWidgetData({ feed_comment_settings: {}, feed_comment_welcome: {} }).blocking.some((f) => f.rule === 'WIDGET_AREA_MISSING'));
   assert.ok(validateWidgetData({ feed_comment_settings: { post_covered_area: 'bogus' }, feed_comment_welcome: {} }).blocking.some((f) => f.rule === 'WIDGET_AREA_INVALID'));
   assert.deepEqual(validateWidgetData({ feed_comment_settings: { post_covered_area: 'all_posts', include_keywords_array: ['x'] }, feed_comment_welcome: { public_reply_messages: ['a', 'b', 'c'] } }).blocking, []);
@@ -93,4 +100,63 @@ test('keyword rules: system keywords and unknown conditions block; 13 keywords b
   assert.ok(r.blocking.some((f) => f.rule === 'KEYWORD_CONDITION_UNKNOWN'));
   assert.ok(r.blocking.some((f) => f.rule === 'KEYWORDS_MAX_12'));
   assert.deepEqual(validateKeywordRules({ keyword_rules: [{ condition: 'contains', keywords: ['wizard'] }], channel: 'instagram' }).blocking, []);
+});
+
+test('0.2.0 policy: a KNOWN string blocks, an UNPROBED rule warns, and allowUiWarnings demotes only the client-only rows', () => {
+  const n = nodes.instagram(ns, 'N');
+  n.messages.push(blocks.text('x'.repeat(1200), [buttons.content('a caption that is definitely longer than twenty', 'zzz')]));
+  const strict = validateBatch({ contents: [n], rootContent: n._oid, context: ctx });
+  const ids = strict.blocking.map((f) => f.rule);
+  assert.ok(ids.includes('TEXT_OVER_1000'), 'client-only length rule blocks');
+  assert.ok(ids.includes('BUTTON_CAPTION_OVER_20'), 'client-only caption rule blocks');
+  const lenient = validateBatch({ contents: [n], rootContent: n._oid, context: ctx, allowUiWarnings: true });
+  const w = lenient.warnings.map((f) => f.rule);
+  assert.ok(w.includes('TEXT_OVER_1000') && w.includes('BUTTON_CAPTION_OVER_20'));
+  assert.ok(lenient.blocking.some((f) => f.rule === 'TARGET_NOT_IN_BATCH'), 'a server rule is never demoted');
+  // every rule the ledger can emit is either server-enforced, client-only with a string, or unprobed
+  for (const [id, r] of Object.entries(RULES)) {
+    if (r.serverEnforced === null) assert.ok(r.clientMessage || r.serverMessage === null, `${id} unprobed rows carry a client string or none`);
+  }
+});
+
+test('new 0.2.0 rules: action required fields, Instagram block allowlist, cards, dynamic, ai node', () => {
+  const a = nodes.actionGroup(ns, 'A', [
+    { type: 'add_tag' }, { type: 'add_to_sequence' }, { type: 'set_custom_field_value', field_id: 10 },
+    { type: 'start_flow' }, { type: 'pause_automations' }, { type: 'google_sheets' }, { type: 'notify_admin', text: '' },
+  ]);
+  const r1 = validateBatch({ contents: [a], rootContent: a._oid, context: ctx });
+  const ids1 = r1.blocking.map((f) => f.rule);
+  for (const must of ['ACTION_TAG_REQUIRED', 'ACTION_SEQUENCE_REQUIRED', 'ACTION_FIELD_VALUE_REQUIRED', 'ACTION_START_FLOW_REQUIRED', 'ACTION_PAUSE_DURATION_REQUIRED', 'ACTION_INTEGRATION_ACTION_REQUIRED', 'ACTION_NOTIFY_TEXT_REQUIRED']) assert.ok(ids1.includes(must), must);
+
+  const n = nodes.instagram(ns, 'N');
+  n.messages.push({ _oid: 'b1', type: 'attachment', content: { type: 'bogus' }, keyboard: [] });
+  n.messages.push({ _oid: 'b2', type: 'cards', elements: [], keyboard: [] });
+  n.messages.push({ _oid: 'b3', type: 'dynamic', url: '', method: 'PATCH', keyboard: [] });
+  n.messages.push({ _oid: 'b4', type: 'list', elements: [], keyboard: [] });
+  const r2 = validateBatch({ contents: [n], rootContent: n._oid, context: ctx });
+  const ids2 = r2.blocking.map((f) => f.rule);
+  for (const must of ['ATTACHMENT_TYPE_INVALID', 'CARDS_EMPTY', 'DYNAMIC_URL_REQUIRED', 'DYNAMIC_METHOD_INVALID', 'IG_BLOCK_NOT_ALLOWED']) assert.ok(ids2.includes(must), must);
+
+  const ai = nodes.aiNode(ns, 'Ask AI', '');
+  assert.ok(validateBatch({ contents: [ai], rootContent: ai._oid, context: ctx }).blocking.some((f) => f.rule === 'AI_NODE_PROMPT_REQUIRED'));
+
+  const good = nodes.instagram(ns, 'Good');
+  good.messages.push({ _oid: 'g1', type: 'cards', elements: [{ _oid: 'c1', type: 'card', content: { title: 'A card', subtitle: '' }, keyboard: [] }], keyboard: [] });
+  good.messages.push({ _oid: 'g2', type: 'dynamic', url: 'https://example.com/x', method: 'post', payload: '{"a":1}', keyboard: [] });
+  good.messages.push({ _oid: 'g3', type: 'attachment', content: { type: 'image', data: { caid: 1, type: 'image' } }, keyboard: [] });
+  assert.deepEqual(validateBatch({ contents: [good], rootContent: good._oid, context: ctx }).blocking, []);
+});
+
+test('live-proven 2026-09-03: an image without a caid and an object dynamic payload are refused with the server strings', () => {
+  const n = nodes.instagram(ns, 'N');
+  n.messages.push({ _oid: 'a1', type: 'attachment', content: { type: 'external_image', data: { url: 'https://example.com/a.png' } }, keyboard: [] });
+  n.messages.push({ _oid: 'a2', type: 'cards', elements: [{ _oid: 'c1', type: 'card', content: { title: 'T', image: { type: 'external_image', url: 'https://example.com/a.png' } }, keyboard: [] }], keyboard: [] });
+  n.messages.push({ _oid: 'a3', type: 'dynamic', url: 'https://example.com/x', method: 'post', payload: { a: 1 }, keyboard: [] });
+  const r = validateBatch({ contents: [n], rootContent: n._oid, context: ctx });
+  const caid = r.blocking.filter((f) => f.rule === 'ATTACHMENT_NEEDS_CAID');
+  assert.equal(caid.length, 2, 'both the block and the card image are caught');
+  assert.equal(caid[0].message, 'Attachment without caid');
+  assert.equal(caid[0].serverEnforced, true);
+  const dyn = r.blocking.find((f) => f.rule === 'DYNAMIC_PAYLOAD_NOT_STRING');
+  assert.equal(dyn.message, 'Something went wrong');
 });

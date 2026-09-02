@@ -129,6 +129,8 @@ export const nodes = {
   smartDelay: (ns, caption, value, unit) => ({ type: 'smart_delay', _oid: uuid(), namespace: ns, caption, content_id: null, removed: false, target: null, limit_time: null, shift_time: { unit, value } }),
   split: (ns, caption, randomized = true) => ({ type: 'split', _oid: uuid(), namespace: ns, caption, content_id: null, removed: false, randomized, variants: [] }),
   note: (ns, text, { color = 'default', font_size = 'small', note_size = 'medium', user_id = null } = {}) => ({ type: 'note', _oid: uuid(), namespace: ns, caption: 'note', content_id: null, removed: false, note: { _oid: uuid(), user_id, timestamp: Math.floor(Date.now() / 1000), text, color, font_size, note_size } }),
+  // ManyChat AI step (BackendContentType.AI_NODE): Exporter.processAiNode.
+  aiNode: (ns, caption, prompt, { default_target = null, abilities = [], resources = null } = {}) => ({ type: 'ai_node', _oid: uuid(), namespace: ns, caption, content_id: null, removed: false, default_target, prompt, abilities, resources }),
 };
 export const blocks = {
   text: (text, keyboard = []) => ({ _oid: uuid(), type: 'text', content: { text }, keyboard }),
@@ -137,6 +139,13 @@ export const blocks = {
     _oid: uuid(), type: 'question', content: { text }, answer_type, answer_method, adapters, answer_replies: [], validation_message, skip_button_caption, telegram_share_phone_button_caption: null, button_caption: null, limit_failed, question_answer_timeout: timeout, success_target, ...(timeout_target ? { timeout_target } : {}),
   }),
 };
+// Blocks the Instagram node accepts beyond text/question/delay (Exporter.processBlockSpecific).
+blocks.externalImage = (url) => ({ _oid: uuid(), type: 'attachment', content: { type: 'external_image', data: { url } }, keyboard: [] });
+// `data` is the object POST /content/upload returned (caid, title, type …); `type` is image|video|file|gif.
+blocks.attachment = (type, data) => ({ _oid: uuid(), type: 'attachment', content: { type, data }, keyboard: [] });
+blocks.card = ({ title, subtitle = '', image = null, keyboard = [], default_action = null }) => ({ _oid: uuid(), type: 'card', content: { title, subtitle, image }, default_action, is_hidden: false, keyboard });
+blocks.cards = (elements, { image_aspect_ratio = 'horizontal' } = {}) => ({ _oid: uuid(), type: 'cards', image_aspect_ratio, elements, keyboard: [] });
+blocks.dynamic = ({ url, method = 'get', payload = null, headers = {}, fallback = null }) => ({ _oid: uuid(), type: 'dynamic', method: String(method).toLowerCase(), url, payload, headers, fallback, keyboard: [] });
 export const buttons = {
   content: (caption, oid) => ({ _oid: uuid(), type: 'content', caption, _content_oid: oid, actions: [] }),
   url: (caption, url) => ({ _oid: uuid(), type: 'url', caption, url, webview_size: 'full', do_not_track: false, actions: [] }),

@@ -459,6 +459,13 @@
       "kind": "destructive",
       "summary": "Delete the account's public API key.",
       "note": "never called by this server (no-delete house rule)"
+    },
+    "POST /content/upload": {
+      "proven": "live",
+      "summary": "Upload an image/video/file/gif (multipart); returns {attachment:{caid,title,type}} for an attachment block.",
+      "coveredBy": [
+        "upload_attachment"
+      ]
     }
   }
 }
