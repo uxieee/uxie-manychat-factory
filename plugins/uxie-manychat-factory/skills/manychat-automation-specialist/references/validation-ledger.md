@@ -151,6 +151,31 @@ A 200 from `flow/publish` proves only that the **S** rules passed.
 | `KEYWORD_RULES_MAX_5` | C | yes (UI rule) | No more than 5 rules per keyword trigger |  |
 | `KEYWORD_CHANNEL_UNKNOWN` | C | yes (policy) | channel must be instagram, facebook, whatsapp, telegram, tiktok or sms |  |
 
+
+## House rules (0.6.0) — ours, not ManyChat's
+
+Five rules the ledger enforces that ManyChat itself does not. The API accepts every one of them;
+they exist because the resulting flow is either undeliverable or unmaintainable. They are checked
+where the object is created, so they land in the tool result rather than in a document.
+
+| Rule | Layer | Blocks | Message | Note |
+|---|---|---|---|---|
+| `DELAY_EXCEEDS_MESSAGING_WINDOW` | C | **no** — warns | This delay puts the next send outside Meta's 24-hour messaging window, so it will publish and never deliver. | `validateBatch` walks every path from the root summing `smart_delay` durations and reports at the node that first crosses 24h, with the computed total. Warns rather than blocks because a contact who re-engages before the delay fires reopens the window — the branch is dead for most contacts, not all. |
+| `FIELD_SHADOWS_SYSTEM_FIELD` | C | **yes** (policy) | A ManyChat system field already holds this. Capture it with `save_to` and read it with the system merge tag instead of creating a custom field. | `create_field` refuses **before** calling the API. Matches the whole normalised caption against a synonym table, so `Work Email Verified At` is fine and `Email Address` is not. |
+| `TAG_NAME_NOT_NAMESPACED` | C | no — warns | Tag names use `namespace:value`, lowercase, hyphens inside multi-word values. | ManyChat does not normalise tag case on write, so mixed schemes silently produce duplicates. The finding carries a suggested name. |
+| `OBJECT_NOT_IN_FOLDER` | C | no — warns | Created at the account root. Pass `path` so it lands in a folder. | Folders are the only organisational primitive ManyChat has, and moving objects later is manual work in the UI. |
+| `OBJECT_NAME_EMOJI` | C | no — warns | No emoji in object names. Emoji in message copy is fine. | Breaks sorting and search. |
+
+`validateObjectName({ kind, caption, path })` returns the same shape as `validateBatch` and is
+wired into `create_tag`, `create_field` and `create_bot_field`. The delay walk runs inside
+`validateBatch`, so it fires on `check_flow`, `build_flow` (including `dryRun`), `edit_flow` and
+`publish_flow`.
+
+**Verified live 2026-09-04.** `create_field` with caption `Email Address` returned
+`VALIDATION_FAILED` and made no API call. `build_flow` with `dryRun:true` on a spec containing a
+two-day delay returned the warning keyed to caption `Wait 2 days` with detail
+`48h from the contact's last interaction`.
+
 ## Proven against the live server
 
 **2026-09-03, twelve rules by differential.** Each violation was sent straight to `flow/publish`

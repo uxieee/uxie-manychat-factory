@@ -103,7 +103,18 @@ export const RULES = Object.freeze({
   NOTE_SIZE: { layer: 'S', serverEnforced: true, serverMessage: 'Wrong note size' },
   NOTE_COLOR: { layer: 'S', serverEnforced: true, serverMessage: 'Wrong note color' },
   NOTE_TEXT_OVER_640: { layer: 'C', serverEnforced: false, clientMessage: 'Note text must be less than 640 characters long', note: 'server accepted 641 (live-10)' },
-  // Triggers
+
+  // --- delivery and house conventions (0.6.0) ---------------------------------
+  // Not ManyChat strings. These are OUR rules: the first is Meta's messaging
+  // window, which the server never reports because the publish genuinely
+  // succeeds; the rest are the operator's conventions, checked where objects
+  // are created. All warn except the system-field collision, which has no
+  // legitimate use and one obvious fix.
+  DELAY_EXCEEDS_MESSAGING_WINDOW: { layer: 'C', serverEnforced: null, clientMessage: 'This delay puts the next send outside Meta\u2019s 24-hour messaging window, so it will publish and never deliver.', note: 'Cumulative delay from the flow root exceeds 24h. ManyChat blocks the send itself for a contact outside the window and reports nothing. WARNS rather than blocks: a contact who re-engages before the delay fires reopens the window, so the branch is dead for most contacts, not all. Long follow-up belongs in a CRM \u2014 see delivery-rules.md.' },
+  TAG_NAME_NOT_NAMESPACED: { layer: 'C', serverEnforced: null, clientMessage: 'Tag names use namespace:value, lowercase, hyphens inside multi-word values.', note: 'ManyChat does not normalise tag case on write, so mixed schemes silently produce duplicate tags. House convention \u2014 see system-conventions.md.' },
+  FIELD_SHADOWS_SYSTEM_FIELD: { layer: 'C', serverEnforced: null, toolBlocks: true, clientMessage: 'A ManyChat system field already holds this. Capture it with save_to and read it with the system merge tag instead of creating a custom field.', note: 'A custom field beside the system one is two sources of truth, and the question node and native integrations only write to the system field.' },
+  OBJECT_NOT_IN_FOLDER: { layer: 'C', serverEnforced: null, clientMessage: 'Created at the account root. Pass path so it lands in a folder.', note: 'Folders are the only organisational primitive ManyChat has, and moving objects later is manual work in the UI.' },
+  OBJECT_NAME_EMOJI: { layer: 'C', serverEnforced: null, clientMessage: 'No emoji in object names. Emoji in message copy is fine.', note: 'Emoji in a name breaks sorting and search. House convention.' },  // Triggers
   WIDGET_AREA_INVALID: { layer: 'C', serverEnforced: false, clientMessage: 'post_covered_area must be all_posts, specific_post or next_post', note: 'server accepted "bogus" (live-06) but the UI then refuses to activate; the tool blocks it', toolBlocks: true },
   WIDGET_AREA_MISSING: { layer: 'C', serverEnforced: false, clientMessage: 'Choose Specific Post or Reel to continue.', note: 'without post_covered_area the UI shows "specific Post" and refuses activation', toolBlocks: true },
   WIDGET_POST_REQUIRED: { layer: 'S+C', serverEnforced: true, serverMessage: 'Please select a post to track comments', clientMessage: 'Post is required' },
@@ -429,6 +440,51 @@ export function validateBatch({ contents, rootContent, context = {}, allowUiWarn
       if (String(n.text ?? '').length > 640) F.add('NOTE_TEXT_OVER_640', where);
     }
   }
+
+  // --- cumulative delay from the root ----------------------------------------
+  // Every edge in this shape is an object carrying _content_oid, so a deep scan
+  // finds them all without enumerating node types.
+  const outgoing = (node) => {
+    const out = [];
+    const seen = new Set();
+    const scan = (v) => {
+      if (!v || typeof v !== 'object' || seen.has(v)) return;
+      seen.add(v);
+      if (Array.isArray(v)) { for (const x of v) scan(x); return; }
+      if (v._content_oid != null) out.push(v._content_oid);
+      for (const k of Object.keys(v)) scan(v[k]);
+    };
+    scan(node);
+    return out;
+  };
+  const byOid = new Map(list.filter((c) => c?._oid).map((c) => [c._oid, c]));
+  const HOURS = { minutes: 1 / 60, hours: 1, days: 24 };
+  const delayHours = (c) => {
+    if (c?.type !== 'smart_delay') return 0;
+    const u = c.shift_time?.unit;
+    const v = Number(c.shift_time?.value);
+    return HOURS[u] != null && Number.isFinite(v) && v > 0 ? HOURS[u] * v : 0;
+  };
+  if (rootContent != null && byOid.has(rootContent)) {
+    const reported = new Set();
+    const best = new Map(); // oid -> smallest cumulative hours seen, so we walk each node once per improvement
+    const stack = [[rootContent, 0]];
+    while (stack.length) {
+      const [oid, before] = stack.pop();
+      const node = byOid.get(oid);
+      if (!node) continue;
+      const after = before + delayHours(node);
+      const prev = best.get(oid);
+      if (prev != null && prev <= before) continue;
+      best.set(oid, before);
+      if (node.type === 'smart_delay' && before <= 24 && after > 24 && !reported.has(oid)) {
+        reported.add(oid);
+        F.add('DELAY_EXCEEDS_MESSAGING_WINDOW', { oid, caption: node.caption }, { detail: `${Math.round(after * 10) / 10}h from the contact's last interaction` });
+      }
+      for (const next of outgoing(node)) if (next !== oid) stack.push([next, after]);
+    }
+  }
+
   return F.result();
 }
 
@@ -469,3 +525,69 @@ export function validateKeywordRules({ keyword_rules, channel, allowUiWarnings =
 
 // The ledger as data, for describe-style output.
 export const ruleTable = () => Object.entries(RULES).map(([id, r]) => ({ id, ...r }));
+
+// ---------------------------------------------------------------------------
+// House conventions, checked where an object is created.
+//
+// These are the operator's rules, not ManyChat's — the API accepts any caption.
+// They live here so the check runs at the point of creation, in the tool result
+// the caller actually reads, rather than in a document the caller may not open.
+// ---------------------------------------------------------------------------
+
+// A ManyChat system field already holds these. Matched on the WHOLE normalised
+// caption, so "Work Email Verified At" is a legitimate custom field and
+// "Email Address" is not.
+const SYSTEM_FIELD_SYNONYMS = new Map(Object.entries({
+  email: 'email', 'e mail': 'email', 'email address': 'email', 'e mail address': 'email', 'lead email': 'email',
+  phone: 'phone', 'phone number': 'phone', telephone: 'phone', mobile: 'phone', 'mobile number': 'phone',
+  'first name': 'first_name', firstname: 'first_name',
+  'last name': 'last_name', lastname: 'last_name', surname: 'last_name',
+  'full name': 'full_name', fullname: 'full_name', name: 'full_name',
+  'instagram username': 'ig_username', 'ig username': 'ig_username',
+}));
+
+const TAG_NAME_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*:[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const HAS_EMOJI = /\p{Extended_Pictographic}/u;
+const normalizeCaption = (s) => String(s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+const slugSegment = (s) => String(s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+// Suggest a namespace:value form. "Lead: PDF Requested" -> "lead:pdf-requested";
+// with no colon the first word becomes the namespace.
+const suggestTagName = (caption) => {
+  const raw = String(caption ?? '');
+  const i = raw.indexOf(':');
+  const [ns, rest] = i >= 0 ? [raw.slice(0, i), raw.slice(i + 1)] : [raw.trim().split(/\s+/)[0] ?? '', raw.trim().split(/\s+/).slice(1).join(' ')];
+  const a = slugSegment(ns);
+  const b = slugSegment(rest);
+  return a && b ? `${a}:${b}` : null;
+};
+
+/**
+ * Check one object's name (and folder) against the house conventions.
+ * Returns the same shape as validateBatch: { ok, blocking, warnings, count, meaning }.
+ *
+ * @param {object} o
+ * @param {'tag'|'field'|'bot_field'|'flow'} o.kind
+ * @param {string} o.caption
+ * @param {string} [o.path]  the folder path the object is being created in ('/' is the root)
+ */
+export function validateObjectName({ kind, caption, path } = {}) {
+  const F = new Findings({});
+  const where = { kind, caption };
+
+  if (HAS_EMOJI.test(String(caption ?? ''))) F.add('OBJECT_NAME_EMOJI', where);
+
+  if (kind === 'tag' && !TAG_NAME_RE.test(String(caption ?? ''))) {
+    const suggestion = suggestTagName(caption);
+    F.add('TAG_NAME_NOT_NAMESPACED', where, { detail: suggestion ? `try ${suggestion}` : 'use namespace:value, lowercase' });
+  }
+
+  if (kind === 'field') {
+    const hit = SYSTEM_FIELD_SYNONYMS.get(normalizeCaption(caption));
+    if (hit) F.add('FIELD_SHADOWS_SYSTEM_FIELD', where, { detail: `${hit} is a system field — capture with save_to:"${hit}" and read it as {{${hit}}}` });
+  }
+
+  if (path != null && String(path).trim() === '/') F.add('OBJECT_NOT_IN_FOLDER', where);
+
+  return F.result();
+}

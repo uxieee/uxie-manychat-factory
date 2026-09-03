@@ -8,6 +8,50 @@ The plugin ships **two manifests over one tree** — `.claude-plugin/plugin.json
 `.codex-plugin/plugin.json` (Codex). Both carry the same version, enforced by
 `scripts/check-manifest-parity.mjs`.
 
+## [0.6.0] — 2026-09-04
+
+Enforcement. 0.4.0 and 0.5.0 wrote the rules down; testing showed documentation has a ceiling —
+agents that skim a skill follow the mechanics ManyChat refuses and ignore everything else. So the
+five rules that matter most now run in the compiler, where a caller reads them whether or not they
+opened a reference.
+
+### Added
+
+- **`DELAY_EXCEEDS_MESSAGING_WINDOW`** — `validateBatch` walks every path from the flow root
+  summing `smart_delay` durations and reports at the node that first crosses 24 hours, with the
+  computed total (`48h from the contact's last interaction`). The graph walk is a deep scan for
+  `_content_oid`, so it covers buttons, quick replies, condition targets, split variants and
+  question success/timeout edges without enumerating node types, and it terminates on cycles.
+  **Warns, does not block** — a contact who re-engages before the delay fires reopens the window,
+  so the branch is dead for most contacts, not all.
+- **`FIELD_SHADOWS_SYSTEM_FIELD`** — `create_field` refuses **before calling the API** when the
+  caption names something ManyChat already holds as a system field. Matched on the whole
+  normalised caption against a synonym table, so `Work Email Verified At` is a legitimate custom
+  field and `Email Address` is not. The only new rule that blocks: it has no legitimate use and
+  exactly one right fix.
+- **`TAG_NAME_NOT_NAMESPACED`**, **`OBJECT_NOT_IN_FOLDER`**, **`OBJECT_NAME_EMOJI`** — warnings
+  carried on the result of `create_tag`, `create_field` and `create_bot_field` under a
+  `conventions` key. The tag finding carries a suggested name (`Lead: PDF Requested` →
+  `lead:pdf-requested`).
+- **`validateObjectName({ kind, caption, path })`** — exported from `core/rules.mjs`, same result
+  shape as `validateBatch`.
+
+### Verified
+
+17 new tests in `test/conventions.test.mjs`, written before the implementation and watched fail;
+76/76 green overall. Then live: `create_field` with `Email Address` returned `VALIDATION_FAILED`
+and made no API call, and `build_flow` with `dryRun:true` on a two-day delay returned the warning
+keyed to the right caption with the right computed total.
+
+### Why this exists
+
+Four agents were given an approved design and asked to name the objects they would create. Every
+one produced the `private_reply` root, held URLs in bot fields, uploaded attachments and left
+triggers in draft — rules framed as *ManyChat will refuse this*. **None followed the naming
+conventions**, and two created a custom `Email Address` field beside the system one. Hoisting the
+conventions from the reference into SKILL.md changed nothing. The rules that bind are the ones with
+a consequence attached, so these now have one.
+
 ## [0.5.0] — 2026-09-04
 
 House conventions. 0.4.0 said what ManyChat refuses; this says what a build should *look like* —

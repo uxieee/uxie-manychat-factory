@@ -1,7 +1,7 @@
 {
   "name": "uxie-manychat-factory",
   "description": "ManyChat toolkit: a local MCP server over ManyChat's internal builder API (flows, publish, canvas layout, comment triggers, DM keywords, tags, fields, bot fields) plus the public API (contacts, tags, fields, sending), a session-capture command, and an automation-specialist skill that carries ManyChat's own validation rules.",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "author": {
     "name": "Xander Roque",
     "url": "https://github.com/uxieee"

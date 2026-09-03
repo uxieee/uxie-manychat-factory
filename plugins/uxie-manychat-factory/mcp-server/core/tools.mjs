@@ -9,7 +9,7 @@ import { z } from 'zod';
 import { CODES, RECONNECT, containsSecrets, fail, failureOf, ok } from './errors.mjs';
 import { SessionError, readSession, sessionStatus, writeSession } from './session.mjs';
 import { makeInternalGateway, makePublicGateway } from './gateway.mjs';
-import { validateBatch, validateKeywordRules, validateWidgetData, ruleTable, POST_COVERED_AREAS, COMMENT_CONTAINS, KEYWORD_CONDITIONS, WIDGET_STATUSES, KEYWORD_STATUSES, COMMENT_TRIGGER_WIDGET_TYPES } from './rules.mjs';
+import { validateBatch, validateKeywordRules, validateWidgetData, validateObjectName, ruleTable, POST_COVERED_AREAS, COMMENT_CONTAINS, KEYWORD_CONDITIONS, WIDGET_STATUSES, KEYWORD_STATUSES, COMMENT_TRIGGER_WIDGET_TYPES } from './rules.mjs';
 import { ATTACHMENT_BACKEND_TYPE, ATTACHMENT_UPLOAD_TYPES, ATTACHMENT_WIRE_TYPE, captionErrors, draftToBatch, duplicateOids, layoutCoordinates, publishedToBatch, summarizeContents, stripStats, uuid } from './flow-model.mjs';
 import { CompileError, compileSpec } from './build-flow.mjs';
 import { EditError, applyOps } from './edit-flow.mjs';
@@ -55,6 +55,20 @@ function validateRegisteredArgs(tool, args) {
 
 // ── shared internal-rail helpers ──────────────────────────────────────────────────────────
 const clientId = (tag) => `${uuid()}|uxie-manychat-mcp${tag ? `|${tag}` : ''}`;
+
+// House conventions, checked before an object is created. A blocking finding
+// (only the system-field collision) refuses without calling the API; anything
+// else rides along on the result so the caller sees it where they are looking.
+const conventions = ({ kind, caption, path }) => {
+  const r = validateObjectName({ kind, caption, path });
+  return {
+    refusal: r.blocking.length
+      ? fail(CODES.VALIDATION_FAILED, r.blocking.map((f) => f.message).join(' '), 'Use the system field instead of creating a custom one; nothing was sent.', { conventions: r })
+      : null,
+    block: r.count ? { conventions: r } : {},
+  };
+};
+
 // One call, classified. Returns { res, bad } — bad is the error contract or null.
 async function mc(gw, method, path, body, opts) { const res = await gw.call(method, path, body, opts); return { res, bad: failureOf(res, 'internal') }; }
 
@@ -598,12 +612,13 @@ export const TOOLS = [
     inputSchema: schema({ tag_name: z.string(), path: z.string().default('/'), accountId: z.string().optional() }),
     capabilities: [{ rail: 'internal', method: 'POST', path: '/tags/create' }, { rail: 'internal', method: 'GET', path: '/tags/list' }],
     handler: async (args, deps) => guard(async () => {
+      const conv = conventions({ kind: 'tag', caption: args.tag_name, path: args.path ?? '/' });
       const gw = deps.makeGw({ accountId: args.accountId });
       const { res, bad } = await mc(gw, 'POST', '/tags/create', { tag_name: args.tag_name, path: args.path ?? '/', client_id: uuid() });
       if (bad) return bad;
       const t = await mc(gw, 'GET', '/tags/list', undefined, { query: { type: 'user' } }); if (t.bad) return t.bad;
       const stored = (t.res.json.tags ?? []).find((x) => x.tag_id === res.json.tag?.tag_id) ?? null;
-      return ok({ tag: res.json.tag, verify: { listed: Boolean(stored), nameMatches: stored?.tag_name === args.tag_name } });
+      return ok({ tag: res.json.tag, ...conv.block, verify: { listed: Boolean(stored), nameMatches: stored?.tag_name === args.tag_name } });
     }),
   },
   {
@@ -624,12 +639,14 @@ export const TOOLS = [
     inputSchema: schema({ caption: z.string(), type: z.string().default('text'), description: z.string().default(''), path: z.string().default('/'), accountId: z.string().optional() }),
     capabilities: [{ rail: 'internal', method: 'POST', path: '/customFields/create' }, { rail: 'internal', method: 'GET', path: '/customFields/list' }],
     handler: async (args, deps) => guard(async () => {
+      const conv = conventions({ kind: 'field', caption: args.caption, path: args.path ?? '/' });
+      if (conv.refusal) return conv.refusal;
       const gw = deps.makeGw({ accountId: args.accountId });
       const { res, bad } = await mc(gw, 'POST', '/customFields/create', { caption: args.caption, type: args.type ?? 'text', description: args.description ?? '', path: args.path ?? '/' });
       if (bad) return bad;
       const l = await mc(gw, 'GET', '/customFields/list', undefined, { query: { active_only: 'true' } }); if (l.bad) return l.bad;
       const stored = (l.res.json.fields ?? []).find((f) => f.field_id === res.json.field?.field_id) ?? null;
-      return ok({ field: res.json.field, mergeTag: res.json.field ? `{{cuf_${res.json.field.field_id}}}` : null, verify: { listed: Boolean(stored), captionMatches: stored?.caption === args.caption } });
+      return ok({ field: res.json.field, mergeTag: res.json.field ? `{{cuf_${res.json.field.field_id}}}` : null, ...conv.block, verify: { listed: Boolean(stored), captionMatches: stored?.caption === args.caption } });
     }),
   },
   {
@@ -650,6 +667,7 @@ export const TOOLS = [
     inputSchema: schema({ caption: z.string(), type: z.string().default('text'), description: z.string().default(''), value: z.union([z.string(), z.number(), z.boolean()]).optional(), path: z.string().default('/'), accountId: z.string().optional() }),
     capabilities: [{ rail: 'internal', method: 'POST', path: '/globalFields/create' }, { rail: 'internal', method: 'POST', path: '/globalFields/changeValue' }, { rail: 'internal', method: 'GET', path: '/globalFields/list' }],
     handler: async (args, deps) => guard(async () => {
+      const conv = conventions({ kind: 'bot_field', caption: args.caption, path: args.path ?? '/' });
       const gw = deps.makeGw({ accountId: args.accountId });
       const { res, bad } = await mc(gw, 'POST', '/globalFields/create', { caption: args.caption, type: args.type ?? 'text', description: args.description ?? '', value: args.value ?? null, path: args.path ?? '/' });
       if (bad) return bad;
@@ -660,7 +678,7 @@ export const TOOLS = [
       }
       const l = await mc(gw, 'GET', '/globalFields/list', undefined, { query: { active_only: 'true' } }); if (l.bad) return l.bad;
       const stored = (l.res.json.fields ?? []).find((f) => f.field_id === field?.field_id) ?? null;
-      return ok({ field: stored ?? field, mergeTag: field ? `{{gaf_${field.field_id}}}` : null, verify: { listed: Boolean(stored), valueMatches: args.value === undefined ? null : stored?.value === args.value } });
+      return ok({ field: stored ?? field, mergeTag: field ? `{{gaf_${field.field_id}}}` : null, ...conv.block, verify: { listed: Boolean(stored), valueMatches: args.value === undefined ? null : stored?.value === args.value } });
     }),
   },
   {

@@ -53179,6 +53179,17 @@ var RULES = Object.freeze({
   NOTE_SIZE: { layer: "S", serverEnforced: true, serverMessage: "Wrong note size" },
   NOTE_COLOR: { layer: "S", serverEnforced: true, serverMessage: "Wrong note color" },
   NOTE_TEXT_OVER_640: { layer: "C", serverEnforced: false, clientMessage: "Note text must be less than 640 characters long", note: "server accepted 641 (live-10)" },
+  // --- delivery and house conventions (0.6.0) ---------------------------------
+  // Not ManyChat strings. These are OUR rules: the first is Meta's messaging
+  // window, which the server never reports because the publish genuinely
+  // succeeds; the rest are the operator's conventions, checked where objects
+  // are created. All warn except the system-field collision, which has no
+  // legitimate use and one obvious fix.
+  DELAY_EXCEEDS_MESSAGING_WINDOW: { layer: "C", serverEnforced: null, clientMessage: "This delay puts the next send outside Meta\u2019s 24-hour messaging window, so it will publish and never deliver.", note: "Cumulative delay from the flow root exceeds 24h. ManyChat blocks the send itself for a contact outside the window and reports nothing. WARNS rather than blocks: a contact who re-engages before the delay fires reopens the window, so the branch is dead for most contacts, not all. Long follow-up belongs in a CRM \u2014 see delivery-rules.md." },
+  TAG_NAME_NOT_NAMESPACED: { layer: "C", serverEnforced: null, clientMessage: "Tag names use namespace:value, lowercase, hyphens inside multi-word values.", note: "ManyChat does not normalise tag case on write, so mixed schemes silently produce duplicate tags. House convention \u2014 see system-conventions.md." },
+  FIELD_SHADOWS_SYSTEM_FIELD: { layer: "C", serverEnforced: null, toolBlocks: true, clientMessage: "A ManyChat system field already holds this. Capture it with save_to and read it with the system merge tag instead of creating a custom field.", note: "A custom field beside the system one is two sources of truth, and the question node and native integrations only write to the system field." },
+  OBJECT_NOT_IN_FOLDER: { layer: "C", serverEnforced: null, clientMessage: "Created at the account root. Pass path so it lands in a folder.", note: "Folders are the only organisational primitive ManyChat has, and moving objects later is manual work in the UI." },
+  OBJECT_NAME_EMOJI: { layer: "C", serverEnforced: null, clientMessage: "No emoji in object names. Emoji in message copy is fine.", note: "Emoji in a name breaks sorting and search. House convention." },
   // Triggers
   WIDGET_AREA_INVALID: { layer: "C", serverEnforced: false, clientMessage: "post_covered_area must be all_posts, specific_post or next_post", note: 'server accepted "bogus" (live-06) but the UI then refuses to activate; the tool blocks it', toolBlocks: true },
   WIDGET_AREA_MISSING: { layer: "C", serverEnforced: false, clientMessage: "Choose Specific Post or Reel to continue.", note: 'without post_covered_area the UI shows "specific Post" and refuses activation', toolBlocks: true },
@@ -53506,6 +53517,49 @@ function validateBatch({ contents, rootContent, context = {}, allowUiWarnings = 
       if (String(n.text ?? "").length > 640) F.add("NOTE_TEXT_OVER_640", where);
     }
   }
+  const outgoing = (node2) => {
+    const out = [];
+    const seen = /* @__PURE__ */ new Set();
+    const scan = (v) => {
+      if (!v || typeof v !== "object" || seen.has(v)) return;
+      seen.add(v);
+      if (Array.isArray(v)) {
+        for (const x of v) scan(x);
+        return;
+      }
+      if (v._content_oid != null) out.push(v._content_oid);
+      for (const k of Object.keys(v)) scan(v[k]);
+    };
+    scan(node2);
+    return out;
+  };
+  const byOid = new Map(list.filter((c) => c?._oid).map((c) => [c._oid, c]));
+  const HOURS = { minutes: 1 / 60, hours: 1, days: 24 };
+  const delayHours = (c) => {
+    if (c?.type !== "smart_delay") return 0;
+    const u = c.shift_time?.unit;
+    const v = Number(c.shift_time?.value);
+    return HOURS[u] != null && Number.isFinite(v) && v > 0 ? HOURS[u] * v : 0;
+  };
+  if (rootContent != null && byOid.has(rootContent)) {
+    const reported = /* @__PURE__ */ new Set();
+    const best = /* @__PURE__ */ new Map();
+    const stack = [[rootContent, 0]];
+    while (stack.length) {
+      const [oid, before] = stack.pop();
+      const node2 = byOid.get(oid);
+      if (!node2) continue;
+      const after = before + delayHours(node2);
+      const prev = best.get(oid);
+      if (prev != null && prev <= before) continue;
+      best.set(oid, before);
+      if (node2.type === "smart_delay" && before <= 24 && after > 24 && !reported.has(oid)) {
+        reported.add(oid);
+        F.add("DELAY_EXCEEDS_MESSAGING_WINDOW", { oid, caption: node2.caption }, { detail: `${Math.round(after * 10) / 10}h from the contact's last interaction` });
+      }
+      for (const next of outgoing(node2)) if (next !== oid) stack.push([next, after]);
+    }
+  }
   return F.result();
 }
 function validateWidgetData(data = {}, { allowUiWarnings = false } = {}) {
@@ -53540,6 +53594,55 @@ function validateKeywordRules({ keyword_rules, channel, allowUiWarnings = false 
   return F.result();
 }
 var ruleTable = () => Object.entries(RULES).map(([id, r]) => ({ id, ...r }));
+var SYSTEM_FIELD_SYNONYMS = new Map(Object.entries({
+  email: "email",
+  "e mail": "email",
+  "email address": "email",
+  "e mail address": "email",
+  "lead email": "email",
+  phone: "phone",
+  "phone number": "phone",
+  telephone: "phone",
+  mobile: "phone",
+  "mobile number": "phone",
+  "first name": "first_name",
+  firstname: "first_name",
+  "last name": "last_name",
+  lastname: "last_name",
+  surname: "last_name",
+  "full name": "full_name",
+  fullname: "full_name",
+  name: "full_name",
+  "instagram username": "ig_username",
+  "ig username": "ig_username"
+}));
+var TAG_NAME_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*:[a-z0-9]+(?:-[a-z0-9]+)*$/;
+var HAS_EMOJI = /\p{Extended_Pictographic}/u;
+var normalizeCaption = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+var slugSegment = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+var suggestTagName = (caption) => {
+  const raw = String(caption ?? "");
+  const i = raw.indexOf(":");
+  const [ns, rest] = i >= 0 ? [raw.slice(0, i), raw.slice(i + 1)] : [raw.trim().split(/\s+/)[0] ?? "", raw.trim().split(/\s+/).slice(1).join(" ")];
+  const a = slugSegment(ns);
+  const b = slugSegment(rest);
+  return a && b ? `${a}:${b}` : null;
+};
+function validateObjectName({ kind, caption, path } = {}) {
+  const F = new Findings({});
+  const where = { kind, caption };
+  if (HAS_EMOJI.test(String(caption ?? ""))) F.add("OBJECT_NAME_EMOJI", where);
+  if (kind === "tag" && !TAG_NAME_RE.test(String(caption ?? ""))) {
+    const suggestion = suggestTagName(caption);
+    F.add("TAG_NAME_NOT_NAMESPACED", where, { detail: suggestion ? `try ${suggestion}` : "use namespace:value, lowercase" });
+  }
+  if (kind === "field") {
+    const hit = SYSTEM_FIELD_SYNONYMS.get(normalizeCaption(caption));
+    if (hit) F.add("FIELD_SHADOWS_SYSTEM_FIELD", where, { detail: `${hit} is a system field \u2014 capture with save_to:"${hit}" and read it as {{${hit}}}` });
+  }
+  if (path != null && String(path).trim() === "/") F.add("OBJECT_NOT_IN_FOLDER", where);
+  return F.result();
+}
 
 // core/flow-model.mjs
 init_define_ENDPOINT_CATALOG();
@@ -54492,6 +54595,13 @@ function validateRegisteredArgs(tool, args) {
   return null;
 }
 var clientId = (tag) => `${uuid3()}|uxie-manychat-mcp${tag ? `|${tag}` : ""}`;
+var conventions = ({ kind, caption, path }) => {
+  const r = validateObjectName({ kind, caption, path });
+  return {
+    refusal: r.blocking.length ? fail(CODES.VALIDATION_FAILED, r.blocking.map((f) => f.message).join(" "), "Use the system field instead of creating a custom one; nothing was sent.", { conventions: r }) : null,
+    block: r.count ? { conventions: r } : {}
+  };
+};
 async function mc(gw, method, path, body, opts) {
   const res = await gw.call(method, path, body, opts);
   return { res, bad: failureOf(res, "internal") };
@@ -55113,13 +55223,14 @@ var TOOLS = [
     inputSchema: schema({ tag_name: external_exports.string(), path: external_exports.string().default("/"), accountId: external_exports.string().optional() }),
     capabilities: [{ rail: "internal", method: "POST", path: "/tags/create" }, { rail: "internal", method: "GET", path: "/tags/list" }],
     handler: async (args, deps) => guard(async () => {
+      const conv = conventions({ kind: "tag", caption: args.tag_name, path: args.path ?? "/" });
       const gw = deps.makeGw({ accountId: args.accountId });
       const { res, bad } = await mc(gw, "POST", "/tags/create", { tag_name: args.tag_name, path: args.path ?? "/", client_id: uuid3() });
       if (bad) return bad;
       const t = await mc(gw, "GET", "/tags/list", void 0, { query: { type: "user" } });
       if (t.bad) return t.bad;
       const stored = (t.res.json.tags ?? []).find((x) => x.tag_id === res.json.tag?.tag_id) ?? null;
-      return ok({ tag: res.json.tag, verify: { listed: Boolean(stored), nameMatches: stored?.tag_name === args.tag_name } });
+      return ok({ tag: res.json.tag, ...conv.block, verify: { listed: Boolean(stored), nameMatches: stored?.tag_name === args.tag_name } });
     })
   },
   {
@@ -55140,13 +55251,15 @@ var TOOLS = [
     inputSchema: schema({ caption: external_exports.string(), type: external_exports.string().default("text"), description: external_exports.string().default(""), path: external_exports.string().default("/"), accountId: external_exports.string().optional() }),
     capabilities: [{ rail: "internal", method: "POST", path: "/customFields/create" }, { rail: "internal", method: "GET", path: "/customFields/list" }],
     handler: async (args, deps) => guard(async () => {
+      const conv = conventions({ kind: "field", caption: args.caption, path: args.path ?? "/" });
+      if (conv.refusal) return conv.refusal;
       const gw = deps.makeGw({ accountId: args.accountId });
       const { res, bad } = await mc(gw, "POST", "/customFields/create", { caption: args.caption, type: args.type ?? "text", description: args.description ?? "", path: args.path ?? "/" });
       if (bad) return bad;
       const l = await mc(gw, "GET", "/customFields/list", void 0, { query: { active_only: "true" } });
       if (l.bad) return l.bad;
       const stored = (l.res.json.fields ?? []).find((f) => f.field_id === res.json.field?.field_id) ?? null;
-      return ok({ field: res.json.field, mergeTag: res.json.field ? `{{cuf_${res.json.field.field_id}}}` : null, verify: { listed: Boolean(stored), captionMatches: stored?.caption === args.caption } });
+      return ok({ field: res.json.field, mergeTag: res.json.field ? `{{cuf_${res.json.field.field_id}}}` : null, ...conv.block, verify: { listed: Boolean(stored), captionMatches: stored?.caption === args.caption } });
     })
   },
   {
@@ -55167,6 +55280,7 @@ var TOOLS = [
     inputSchema: schema({ caption: external_exports.string(), type: external_exports.string().default("text"), description: external_exports.string().default(""), value: external_exports.union([external_exports.string(), external_exports.number(), external_exports.boolean()]).optional(), path: external_exports.string().default("/"), accountId: external_exports.string().optional() }),
     capabilities: [{ rail: "internal", method: "POST", path: "/globalFields/create" }, { rail: "internal", method: "POST", path: "/globalFields/changeValue" }, { rail: "internal", method: "GET", path: "/globalFields/list" }],
     handler: async (args, deps) => guard(async () => {
+      const conv = conventions({ kind: "bot_field", caption: args.caption, path: args.path ?? "/" });
       const gw = deps.makeGw({ accountId: args.accountId });
       const { res, bad } = await mc(gw, "POST", "/globalFields/create", { caption: args.caption, type: args.type ?? "text", description: args.description ?? "", value: args.value ?? null, path: args.path ?? "/" });
       if (bad) return bad;
@@ -55178,7 +55292,7 @@ var TOOLS = [
       const l = await mc(gw, "GET", "/globalFields/list", void 0, { query: { active_only: "true" } });
       if (l.bad) return l.bad;
       const stored = (l.res.json.fields ?? []).find((f) => f.field_id === field?.field_id) ?? null;
-      return ok({ field: stored ?? field, mergeTag: field ? `{{gaf_${field.field_id}}}` : null, verify: { listed: Boolean(stored), valueMatches: args.value === void 0 ? null : stored?.value === args.value } });
+      return ok({ field: stored ?? field, mergeTag: field ? `{{gaf_${field.field_id}}}` : null, ...conv.block, verify: { listed: Boolean(stored), valueMatches: args.value === void 0 ? null : stored?.value === args.value } });
     })
   },
   {
