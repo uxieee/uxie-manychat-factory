@@ -13,7 +13,7 @@ ManyChat's own validation rules so you find out what is wrong *before* you publi
 | MCP server | `uxie-manychat-mcp` | 32 stdio tools. **Internal rail**: flows, nodes, publish, canvas layout, comment triggers, DM keywords, tags, contact fields, bot fields. **Public rail**: contacts, tags, fields, sending. Confirmation-gated writes, read-back verification on every one. See [`mcp-server/README.md`](plugins/uxie-manychat-factory/mcp-server/README.md) |
 | Command | `/uxie-manychat-factory:manychat-connect` | Harvests the `app.manychat.com` session from your chrome-devtools browser profile into a `0600` file. You log in once; the agent never sees the cookie |
 | Command | `/uxie-manychat-factory:manychat-setup` | First run: prerequisites, both credentials, connection test |
-| Skill | `manychat-automation-specialist` | How to design and build: the comment-reply rules that dictate every comment-triggered flow's shape, the `build_flow` spec format, the full validation ledger, the draft-first policy |
+| Skill | `manychat-automation-specialist` | How to design and build: the comment-reply rules that dictate every comment-triggered flow's shape, the `build_flow` spec format, the full validation ledger (*will it publish?*), the delivery rules (*will it actually send?* — messaging windows, trigger precedence, frequency caps), the account-architecture conventions, the draft-first policy |
 
 ## Install
 

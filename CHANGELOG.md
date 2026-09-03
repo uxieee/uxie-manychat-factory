@@ -8,6 +8,55 @@ The plugin ships **two manifests over one tree** — `.claude-plugin/plugin.json
 `.codex-plugin/plugin.json` (Codex). Both carry the same version, enforced by
 `scripts/check-manifest-parity.mjs`.
 
+## [0.4.0] — 2026-09-04
+
+Adds the layer the plugin was missing: the rules that decide whether a flow is **delivered**, not
+just whether it publishes. The validation ledger answers *"will this publish?"*. Everything in this
+release answers *"will a human ever receive it?"* — and those failures are silent, because ManyChat
+returns 200 and then declines to send.
+
+### Added
+
+- **`references/delivery-rules.md`** — Meta's messaging windows (24h automated / 7d manual), the
+  Human Agent tag and why it is not an escape hatch, Instagram DM Lists and the check that proves
+  whether an account has any (`GET /notificationReason/list`), the 2026 cap of **1 automated DM per
+  contact per 24h across all comment/story triggers**, rate ceilings, trigger precedence, keyword
+  selection, the compliance floor, and a four-call pre-build audit. Claims are marked **[MC]**
+  (ManyChat's own docs), **[PROVEN]** (verified live by this plugin), or **[3P]** (third-party 2026
+  reporting, corroborated across two independent sources).
+- **`references/account-architecture.md`** — the conventions that keep an account legible when
+  ManyChat gives you no version control: hub-and-spoke entry/core flows, bot fields as the
+  configuration layer, the tags-vs-custom-fields dividing line, a naming table, why follow-up lives
+  in the CRM and not here, the never-delete rule, and what a handover must state.
+- **SKILL.md — "Before you design: say what the platform will not do"**, a table of six requests
+  that cannot be built as asked, what actually happens, and what to design instead. Placed ahead of
+  everything else because a design containing one of them is wrong regardless of the rest.
+
+### Fixed
+
+- **SKILL.md said the API stores "a 1500-character Instagram message".** Instagram's DM limit is
+  **1000**; the server's own cap is 2000. A test agent read the old wording and reported a
+  "1500-character IG cap" back to the user as fact. Now states both numbers explicitly.
+- `list_triggers` promoted into the mandatory recon step. It is how you find the live legacy
+  trigger that will outrank what you are about to build — on Instagram the **oldest** all-posts
+  trigger wins, and nothing anywhere reports the conflict.
+- The rule list was headed "The five things" while listing six.
+
+### Verified
+
+Written against a baseline. Two agents were given a design task containing a deliberately
+impossible requirement (a 2-day follow-up DM) with the 0.3.0 skill; both designed a delay node that
+publishes cleanly and never sends, both flagged the messaging window as an unresolved risk rather
+than a known rule, and neither knew about the 1-DM/24h cap or trigger precedence.
+
+**Re-tested with 0.4.0: 1 of 5 agents produced a correct design.** The one that passed opened the
+references (4 tool calls) and led with what the platform refuses. The four that failed invoked the
+skill and wrote from impression (1–3 tool calls) — one invented a non-existent "Meta 24+1
+allowance" and recommended shipping on it. **Documentation alone does not close this gap.** The
+content is correct and load-bearing for an agent that reads it; the durable fix is a compiler rule
+(a cumulative-delay walk in `core/rules.mjs`) so `build_flow` refuses the shape outright. Tracked,
+not yet built.
+
 ## [0.3.0] — 2026-09-03
 
 Closes the three gaps 0.2.0 shipped with — video, file and gif uploads were never sent, and
