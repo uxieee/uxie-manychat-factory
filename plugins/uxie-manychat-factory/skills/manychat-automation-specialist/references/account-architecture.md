@@ -1,3 +1,8 @@
+> **SUPERSEDED by `system-conventions.md` (0.5.0).** Everything here was folded into that
+> file, which carries the same material plus the recon step, the planning loop, folders,
+> namespaced tag naming, trigger discipline and the pre-build gate. Kept only so no link
+> breaks; do not extend it. Read `system-conventions.md` instead.
+
 # Account architecture — how to build a ManyChat account that stays legible
 
 ManyChat has **no version control**: no diff, no history, no rollback. Nothing warns you that two

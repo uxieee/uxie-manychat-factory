@@ -8,6 +8,80 @@ The plugin ships **two manifests over one tree** — `.claude-plugin/plugin.json
 `.codex-plugin/plugin.json` (Codex). Both carry the same version, enforced by
 `scripts/check-manifest-parity.mjs`.
 
+## [0.5.0] — 2026-09-04
+
+House conventions. 0.4.0 said what ManyChat refuses; this says what a build should *look like* —
+the shape, the names, where data lives, and the gates a design passes through. Modelled on the
+operator's GHL conventions so the two platforms read the same way.
+
+### Added
+
+- **`references/system-conventions.md`** — recon before you answer anything (`list_triggers` is
+  the one people skip and the one that bites); the one-layer-at-a-time planning loop with a gate
+  between each; hard rules for structure and copy; the five-folder account layout; naming for
+  flows, tags, fields, bot fields and triggers; the tags/fields/bot-fields decision rule;
+  Modular Flow Design; ManyChat-only vs handoff builds; trigger discipline.
+- **`references/prebuild-doc-spec.md`** — the single self-contained HTML approval document.
+  File mechanics are deliberately identical to the operator's GHL pre-build doc (sidebar,
+  three-place theme tokens, mermaid re-render on theme change, click-to-enlarge). The sections
+  differ: an account audit first, then what the platform refuses, entry map, flow map, per-flow
+  cards, data, copy appendix.
+
+### Decisions locked
+
+- **Flows: folders plus descriptive names**, no numbering. `Entry · WIZARD`,
+  `Core · Lead Capture & Deliver`. ManyChat is entry points plus shared cores, not one journey,
+  so numbering order is arbitrary and every new keyword would force a renumber.
+- **Tags: `namespace:value`, lowercase.** ManyChat does **not** normalise tag case on write —
+  unlike GHL, which does — so `Interest - Marriage` and `interest - marriage` coexist happily
+  and both will exist within a month. Lowercase namespacing removes the ambiguity.
+- **Five folders on every account**: `Entry`, `Core`, `Utility`, `Archive`, `TEST`. Verified
+  implementable — `create_flow`, `create_field`, `create_bot_field` and `build_flow` all take a
+  `path`, and folders exist for tags and fields too, not just flows.
+- **ManyChat-only builds are first-class.** A build declares its shape: everything finishes in
+  the first conversation, or a handoff posts the lead to a CRM. Neither is the degraded case.
+
+### Research note
+
+The conventions are derived, not copied. A search of the practitioner layer — agency partners,
+Chatimize, ManyChat Educator Partners, the community forum, ManyChat's own courses — found no
+published standard for account-scale naming, tag namespacing, or field taxonomy. What it did
+confirm: ManyChat officially endorses modular flows via the Start Automation step and Go-To
+("break down larger, more complex ones into smaller, reusable automations"), folders are the
+intended organisational primitive, and ManyChat itself acknowledges dashboards get messy past a
+few flows without a convention. Everything else here comes from the proven mechanics in
+`delivery-rules.md` / `validation-ledger.md` and from the operator's existing GHL conventions.
+
+### Verified — and a known limit
+
+Tested with four fresh agents given an approved design and asked to name the objects they would
+create. **The hard mechanics land reliably**: every agent produced the `private_reply` single-block
+root, held URLs in bot fields, uploaded attachments rather than linking them, left triggers in
+draft, and reported the `leftovers` flow. One correctly refused to add a boolean field beside a tag
+that already carried the state — the data decision rule working as intended.
+
+**The naming conventions did not land: 0 of 4.** Tags came back as `IG-START-Requested`,
+`Lead: PDF Requested`, `IG Comment - COURSE`; folders were invented per-campaign; flows were named
+descriptively but not `Entry · <KEYWORD>`; two agents created a custom `Email Address` field beside
+ManyChat's system `email`; two duplicated capture logic across entry flows instead of routing to a
+shared core. Hoisting the naming table from the reference into SKILL.md did not change the result.
+
+The split is informative. Every rule that landed is framed as *ManyChat will refuse this* — an
+external consequence. Every rule that did not is a convention with no enforcement behind it, and a
+generically-trained agent falls back on generic naming. **The durable fix is the same one the delay
+rule needs: enforcement in the compiler.** Hook points identified — `create_tag` can lint a caption
+against `namespace:value`, `create_field` can refuse a caption that collides with a system field
+(the `fieldsByName` map is already built in `core/tools.mjs`), and `create_flow` / `build_flow` can
+warn on a missing or non-standard `path`. Tracked, not yet built.
+
+Until then: these conventions bind an agent that reads them, and they are the specification the
+enforcement will be written from.
+
+### Superseded
+
+- `references/account-architecture.md` — folded into `system-conventions.md`. Kept with a
+  banner so no link breaks; not extended.
+
 ## [0.4.0] — 2026-09-04
 
 Adds the layer the plugin was missing: the rules that decide whether a flow is **delivered**, not

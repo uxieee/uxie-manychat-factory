@@ -34,6 +34,32 @@ wants it anyway, say plainly which part the platform refuses and where it has to
 **at design time, not after the build**. `references/delivery-rules.md` has the mechanics, the
 confidence marks, and the audit that proves each one on a specific account.
 
+## House shape — what every object is called
+
+Not preferences. An account that mixes schemes grows duplicates, and ManyChat does **not**
+normalise tag case on write, so `Interest - Course` and `interest - course` will both exist
+within a month. Full conventions in `references/system-conventions.md`.
+
+| Object | Pattern | Example |
+|---|---|---|
+| Folders | Five, on every account | `Entry` · `Core` · `Utility` · `Archive` · `TEST` |
+| Entry flow | `Entry · <KEYWORD>` in `Entry` | `Entry · WIZARD` |
+| Shared flow | `Core · <Job>` in `Core` | `Core · Lead Capture & Deliver` |
+| Retired flow | `X <old name>`, moved to `Archive` | `X Old Tutorial Flow` |
+| **Tag** | **`namespace:value`, lowercase, hyphens** | `interest:course`, `state:pdf-delivered` |
+| Custom field | Title Case, human-readable | `Interest`, `Lead Source` |
+| Bot field | `<Thing> - <Variant>`, Title Case | `Offer URL - Wizard` |
+| Trigger | `<KEYWORD> — <surface and scope>` | `WIZARD — comment on any post or reel` |
+
+Three rules that catch the common mistakes:
+
+- **`email`, `phone`, `first_name` and `last_name` are SYSTEM fields.** Never create a custom
+  field for them — capture with `save_to: "email"` and read with `{{email}}`. A custom
+  `Lead Email` beside the system one is two sources of truth that will disagree.
+- **Set `path` at creation.** `create_flow`, `create_field`, `create_bot_field` and
+  `build_flow` all take it. Moving things into folders later is manual work in the UI.
+- **No emoji in any object name** — flows, folders, tags, fields. Emoji in DM copy is fine.
+
 ## The things that decide every build
 
 1. **A comment-triggered flow's first node is fixed by ManyChat, not by you.** With a comment or
@@ -94,11 +120,17 @@ confidence marks, and the audit that proves each one on a specific account.
 | `references/flow-spec.md` | `build_flow`'s spec format, every node and action type, a worked lead-capture example, and the `edit_flow` ops |
 | `references/validation-ledger.md` | Every rule that decides **will this publish** — which layer enforces it and ManyChat's exact string. `check_flow` with `rules:true` returns the same table live |
 | `references/delivery-rules.md` | Every rule that decides **will this actually be delivered** — messaging windows, DM Lists, rate and frequency caps, trigger precedence, keyword choice, the compliance floor, and the pre-build audit |
-| `references/account-architecture.md` | How to keep an account legible — hub-and-spoke, bot fields as the config layer, tags vs fields, naming, where follow-up lives, handover |
+| `references/system-conventions.md` | **How the operator builds.** Recon, the layer-by-layer planning loop, hard rules, folders, naming, the tags/fields/bot-fields decision rule, Modular Flow Design, ManyChat-only vs handoff builds, trigger discipline |
+| `references/prebuild-doc-spec.md` | The single-file HTML approval document the operator signs off before anything is created |
 
 Read `delivery-rules.md` before designing anything with a follow-up, a second campaign, or a
 trigger on an account you have not audited this session. It is the file that stops you shipping a
 flow that publishes cleanly and never sends.
+
+Read `system-conventions.md` before proposing **any** design. It carries the recon that comes
+first, the one-layer-at-a-time loop the operator expects, and the naming and data rules that
+decide what the proposal should look like — so the design arrives already in house shape rather
+than being corrected into it.
 
 ## How to run a build
 
