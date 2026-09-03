@@ -48,7 +48,8 @@ A 200 from `flow/publish` proves only that the **S** rules passed.
 | Rule | Layer | Blocks | Message (S = the server's own string) | Note |
 |---|---|---|---|---|
 | `ATTACHMENT_NEEDS_CAID` | S | yes (server) | **`Attachment without caid`** | PROVEN 2026-09-03: an image ManyChat did not store is refused — the external_image shape its own exporter emits, a {type,url} object and a bare URL all fail. Upload it first (upload_attachment -> POST /content/upload) and pass the returned object, which carries caid. |
-| `ATTACHMENT_TYPE_INVALID` | C | yes (policy) | attachment content.type must be image, video, file, gif or external_image |  |
+| `ATTACHMENT_TYPE_INVALID` | C | yes (policy) | attachment content.type must be image, video, file, gif or external_image | The WIRE union. `pdf` and `audio` are builder display types you pass to `upload_attachment`; the exporter downgrades pdf → file and the Parser re-derives Video/PDF from `data.mime`. |
+| `IG_PDF_NEEDS_PREVIEW` | C | yes (policy) | This PDF was uploaded without a preview | PROVEN 2026-09-03 by differential (same bytes, same field name, only `dest` varies): POST /content/upload returns a `preview` object ONLY when the multipart carries `dest=pdf`. Without it the builder logs PdfPreviewNotReceivedError for a PDF on an Instagram node (Batch/Parser.js). Upload with `upload_attachment` `type:"pdf"` `node:"instagram"`. |
 | `ATTACHMENT_URL_REQUIRED` | C | yes (policy) | Please specify image URL | external_image needs content.data.url; uploaded types need the object /content/upload returned |
 | `CARDS_EMPTY` | C | yes (policy) | Please create at least one card |  |
 | `CARDS_MAX_10` | C | yes (policy) | You can add only 10 cards |  |
@@ -93,6 +94,7 @@ A 200 from `flow/publish` proves only that the **S** rules passed.
 | `BOT_FIELD_UNKNOWN` | S | warn | — | change_global_field_value with an unknown field_id was not probed |
 | `ACTION_TAG_REQUIRED` | C | yes (policy) | Please select or create a tag |  |
 | `ACTION_SEQUENCE_REQUIRED` | C | yes (policy) | Please select a sequence |  |
+| `ACTION_SEQUENCE_WRONG` | S | yes (server) | **`Wrong sequence`** | PROVEN 2026-09-03: flow/publish rejects an add_to_sequence whose sequence_id does not exist on the account (probed with id 1). The server validates the id, so the ledger does not have to — but `list_sequences` is how you find a real one, and `build_flow` resolves a sequence NAME through it. |
 | `ACTION_FIELD_REQUIRED` | C | yes (policy) | Please select a custom user field to set |  |
 | `ACTION_FIELD_VALUE_REQUIRED` | C | yes (policy) | Please enter a value for the custom user field | the UI string is a translation key; the server accepts an empty value (it stores it) |
 | `ACTION_UNSET_FIELD_REQUIRED` | C | yes (policy) | Please select a custom user field to unset |  |

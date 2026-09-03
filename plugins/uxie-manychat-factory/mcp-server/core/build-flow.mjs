@@ -15,7 +15,7 @@
 //                    {question: {text, answer_type?, save_to?: "email"|"phone"|"first_name"|"last_name"|{field:"Name"},
 //                                retry_text?, retries?, timeout?: {value, unit}, next?: "Caption", on_timeout?: "Caption"}},
 //                    {image_url: "https://…", buttons?},
-//                    {attachment: {type: "image"|"video"|"file"|"gif", data: <object /content/upload returned>}},
+//                    {attachment: {type: "image"|"video"|"gif"|"pdf"|"audio"|"file", data: <object /content/upload returned>}},
 //                    {cards: [{title, subtitle?, image_url?, url?, buttons?}], aspect?: "horizontal"|"square"},
 //                    {dynamic: {url, method?, payload?, headers?, fallback?: "Caption"}} ],
 //         quick_replies?: [{caption, to: "Caption"}] },
@@ -30,13 +30,13 @@
 // ACTION SHORTHANDS (a tag/field may be a name or a numeric id):
 //   {add_tag} {remove_tag} {set_field:{field,value}} {unset_field} {set_bot_field:{field,value}}
 //   {external_request:{url,method?,headers?,payload?,mapping?}} {notify_admin:{text,send_to?,via?}}
-//   {start_flow:"ns"} {add_to_sequence:id} {remove_from_sequence:id} {open_conversation:true}
+//   {start_flow:"ns"} {add_to_sequence:id|"Name"} {remove_from_sequence:id|"Name"} {open_conversation:true}
 //   {close_conversation:true} {assign_conversation:{user_id|group_id}} {set_optin:"sms"|"email"|"instagram"|"telegram"|"tiktok"}
 //   {set_optout:"sms"|"email"|"whatsapp"|"instagram"|"telegram"|"tiktok"} {pause_automations:{duration}}
 //   {pause_automation_forever:true} {resume_automation:true} {fire_custom_event:{event_id,cost?}}
 //   {set_main_menu:"ns"} {integration:{type,action,data}} {raw:{type,…}}
 // Text tokens: {{field:Name}} → {{cuf_<id>}}, {{bot:Name}} → {{gaf_<id>}}; system tokens pass through.
-import { blocks, buttons, nodes, uuid } from './flow-model.mjs';
+import { ATTACHMENT_UPLOAD_TYPES, ATTACHMENT_WIRE_TYPE, blocks, buttons, nodes, uuid } from './flow-model.mjs';
 
 export class CompileError extends Error {
   constructor(problems) { super(`spec has ${problems.length} problem(s)`); this.problems = problems; }
@@ -69,6 +69,7 @@ export function makeCtx({ ns, resolvers = {}, target }) {
     tag: (name, where) => idOr(name, resolvers.tagId, 'tag', where, 'create it with create_tag; trigger auto-tags cannot be used'),
     field: (name, where) => idOr(name, resolvers.fieldId, 'custom field', where, 'create it with create_field'),
     botField: (name, where) => idOr(name, resolvers.botFieldId, 'bot field', where, 'create it with create_bot_field'),
+    sequence: (name, where) => idOr(name, resolvers.sequenceId, 'sequence', where, 'list them with list_sequences; the server refuses an unknown id with "Wrong sequence"'),
     target: (cap, where) => (cap == null ? null : target(cap, where)),
     problem: (where, message) => problems.push({ where, message }),
   };
@@ -95,8 +96,15 @@ export function compileBlock(b, ctx, where) {
     return null;
   }
   if (b.attachment) {
-    if (!b.attachment.type || !b.attachment.data) ctx.problem(where, 'attachment needs {type: image|video|file|gif, data: <the object upload_attachment returned>}');
-    return blocks.attachment(b.attachment.type, b.attachment.data);
+    if (!b.attachment.type || !b.attachment.data) {
+      ctx.problem(where, `attachment needs {type: ${ATTACHMENT_UPLOAD_TYPES.join('|')}, data: <the object upload_attachment returned>}`);
+      return blocks.attachment(b.attachment?.type, b.attachment?.data);
+    }
+    const t = String(b.attachment.type);
+    // pdf and audio are builder display types; the exporter downgrades pdf -> file on the wire.
+    const wire = ATTACHMENT_WIRE_TYPE[t];
+    if (!wire) ctx.problem(where, `attachment type "${t}" is not one of ${ATTACHMENT_UPLOAD_TYPES.join(', ')}`);
+    return blocks.attachment(wire ?? t, b.attachment.data);
   }
   if (b.cards) {
     const els = (Array.isArray(b.cards) ? b.cards : []).map((c) => blocks.card({
@@ -152,8 +160,8 @@ export function compileAction(a, ctx, where) {
   }
   if (a.notify_admin) return { type: 'notify_admin', text: ctx.tokens(a.notify_admin.text, where), send_to: a.notify_admin.send_to ?? [], all_send_by: a.notify_admin.via ?? ['email'], options: { send_link_to_live_chat: a.notify_admin.link_to_chat ?? true } };
   if (a.start_flow) return { type: 'start_flow', flow_ns: a.start_flow };
-  if (a.add_to_sequence != null) return { type: 'add_to_sequence', sequence_id: Number(a.add_to_sequence) };
-  if (a.remove_from_sequence != null) return { type: 'remove_from_sequence', sequence_id: Number(a.remove_from_sequence) };
+  if (a.add_to_sequence != null) return { type: 'add_to_sequence', sequence_id: ctx.sequence(a.add_to_sequence, where) };
+  if (a.remove_from_sequence != null) return { type: 'remove_from_sequence', sequence_id: ctx.sequence(a.remove_from_sequence, where) };
   if (a.open_conversation) return { type: 'open_conversation' };
   if (a.close_conversation) return { type: 'close_conversation' };
   if (a.assign_conversation) return { type: 'assign_conversation', ...(a.assign_conversation.user_id != null ? { user_id: a.assign_conversation.user_id } : {}), ...(a.assign_conversation.group_id != null ? { group_id: a.assign_conversation.group_id } : {}) };

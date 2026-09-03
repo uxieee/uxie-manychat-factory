@@ -8,6 +8,50 @@ The plugin ships **two manifests over one tree** — `.claude-plugin/plugin.json
 `.codex-plugin/plugin.json` (Codex). Both carry the same version, enforced by
 `scripts/check-manifest-parity.mjs`.
 
+## [0.3.0] — 2026-09-03
+
+Closes the three gaps 0.2.0 shipped with — video, file and gif uploads were never sent, and
+`add_to_sequence` had no sequence to point at — and fixes what proving them exposed.
+
+### Verified live (2026-09-03, on a real Instagram account)
+
+- **Video, gif and file uploads all work**, uploaded and published in an Instagram node and read
+  back. A video and a PDF both come back `type: "file"`; that is correct, not a failure — the
+  builder's `Batch/Parser.js` re-derives Video from `data.mime` starting `video/` and PDF from
+  `application/pdf`. `file` + the right mime **is** the video block.
+- **`add_to_sequence` / `remove_from_sequence`**, against a real sequence created for the purpose.
+  The `sequence_id` survives the round-trip exactly. A bogus id is refused by the SERVER:
+  `flow/publish` answers **`Wrong sequence`**.
+
+### Fixed
+
+- **An Instagram PDF was uploaded broken.** The builder puts a `dest` field on the multipart,
+  decided by (node type, attachment type) — `getAttachmentDestination` in `AttachmentBlock.tsx`,
+  sent by `attachmentActions.js`. The tool never sent it. Proven by differential (same bytes, same
+  field name, only `dest` varies): `POST /content/upload` returns the `preview` object **only** with
+  `dest=pdf`, and without it the builder logs `PdfPreviewNotReceivedError` for a PDF on an Instagram
+  node. `upload_attachment` now takes `node` and derives the whole `dest` matrix (`mms`, `tg`,
+  `tg_file`, `tg_video_note`, `wa`, `wa_file`, `wa_document`, `pdf`).
+- **`upload_attachment`'s description contradicted the engine.** It told callers to skip the upload
+  and use `{image_url}` for an image reachable by URL — which the compiler refuses and ManyChat
+  answers `Attachment without caid`. The sentence is gone.
+- **Two of the seven attachment types were unreachable.** The builder's enum is file, audio, video,
+  image, gif, remote_image, pdf; the tool accepted four. `pdf` and `audio` are now accepted and
+  mapped to their wire form (pdf → `file`), which is also how the exporter does it.
+
+### Added
+
+- **`list_sequences`** — the account's sequences with ids, message and subscriber counts. There was
+  no way to find a `sequence_id` without `raw_request`.
+- **A sequence may be addressed by NAME** in a spec: `{add_to_sequence: "Welcome drip"}` resolves
+  through `list_sequences` at compile time, the way tags and fields already do.
+- **`upload_attachment` enforces the account's own `app.attachment_policy`** (from
+  `GET /dashboard/getData`) before sending: extension and `max_bytes` per channel per file type.
+  Instagram's `file` bucket is **pdf only** — an mp4 uploaded as a file is now refused with the
+  account's own allowed list, rather than stored as an unsendable attachment.
+- **2 ledger rules (93 total)**: `ACTION_SEQUENCE_WRONG` (server: `Wrong sequence`) and
+  `IG_PDF_NEEDS_PREVIEW` (refuses a preview-less PDF on an Instagram node).
+
 ## [0.2.0] — 2026-09-03
 
 Reliability pass. The ledger now refuses anything it knows is wrong, the compiler covers the rest of

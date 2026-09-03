@@ -160,3 +160,23 @@ test('live-proven 2026-09-03: an image without a caid and an object dynamic payl
   const dyn = r.blocking.find((f) => f.rule === 'DYNAMIC_PAYLOAD_NOT_STRING');
   assert.equal(dyn.message, 'Something went wrong');
 });
+
+// REGRESSION 0.3.0 — an Instagram PDF whose upload carried no dest=pdf has no `preview`, and the
+// builder logs PdfPreviewNotReceivedError for it (Batch/Parser.js). Differential: the SAME node,
+// only data.preview varies.
+test('the ledger refuses a preview-less PDF on an Instagram node, and passes one with a preview', () => {
+  const pdfData = (withPreview) => ({
+    type: 'file', caid: 1, file: 'https://example.invalid/d.pdf', mime: 'application/pdf', title: 'd.pdf',
+    ...(withPreview ? { preview: { status: 'success', mime: 'image/jpeg' } } : {}),
+  });
+  const node = (withPreview) => ({
+    type: 'instagram', _oid: 'a', caption: 'PDF', content_id: null, target: null,
+    quick_replies: { buttons: [], settings: {} },
+    messages: [{ _oid: 'm', type: 'attachment', content: { type: 'file', data: pdfData(withPreview) }, keyboard: [] }],
+  });
+  const withIt = validateBatch({ contents: [node(true)], rootContent: 'a', context: { channel: 'instagram' } });
+  assert.equal(withIt.ok, true, JSON.stringify(withIt.blocking));
+  const without = validateBatch({ contents: [node(false)], rootContent: 'a', context: { channel: 'instagram' } });
+  assert.equal(without.ok, false);
+  assert.deepEqual(without.blocking.map((f) => f.rule), ['IG_PDF_NEEDS_PREVIEW']);
+});

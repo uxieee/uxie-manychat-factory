@@ -50,7 +50,8 @@ browser session; only a lapsed login needs the user). Never ask the user to past
 | Build a new automation | `build_flow` (spec → compile → ledger → create → publish → read back) |
 | Check before sending | `check_flow`, or `build_flow` with `dryRun:true` |
 | Change a published flow | **`edit_flow`** with caption-addressed ops — never hand-edit node JSON |
-| Add an image, video or file | `upload_attachment` first, then reference the returned object |
+| Add an image, video, gif, pdf or audio | `upload_attachment` first (pass `node` so it carries the right `dest`), then reference the returned object |
+| Find a sequence id | `list_sequences` — or address the sequence by name and let `build_flow` resolve it |
 | Change a flow the ops cannot express | `get_flow` → edit `batchForResend` → `publish_flow` (upsert by `_oid`; unmentioned nodes survive) |
 | Work in progress | `set_flow_draft` (replaces the draft) / `patch_flow_draft` (merges) → `publish_flow` → or `discard_flow_changes` |
 | Tidy the canvas | `layout_flow` |

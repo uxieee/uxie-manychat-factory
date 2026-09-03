@@ -141,6 +141,15 @@ export const blocks = {
 };
 // Blocks the Instagram node accepts beyond text/question/delay (Exporter.processBlockSpecific).
 blocks.externalImage = (url) => ({ _oid: uuid(), type: 'attachment', content: { type: 'external_image', data: { url } }, keyboard: [] });
+// The builder's own attachment vocabulary (AttachmentBlockAttachmentType) and what each value
+// becomes ON THE WIRE. `pdf` and `audio` are display types: the exporter downgrades pdf -> file
+// (Batch/Exporter.js), and the server stores an uploaded video as file too. The builder's Parser
+// re-derives Video/PDF from data.mime on read-back, so `file` + the right mime IS the video block.
+export const ATTACHMENT_UPLOAD_TYPES = ['image', 'video', 'gif', 'pdf', 'audio', 'file'];
+export const ATTACHMENT_WIRE_TYPE = { image: 'image', gif: 'gif', video: 'video', audio: 'audio', pdf: 'file', file: 'file' };
+// AttachmentTypeToBackendMap — which app.attachment_policy bucket a type is judged against.
+export const ATTACHMENT_BACKEND_TYPE = { image: 'image', gif: 'image', video: 'video', audio: 'audio', pdf: 'file', file: 'file' };
+
 // `data` is the object POST /content/upload returned (caid, title, type …); `type` is image|video|file|gif.
 blocks.attachment = (type, data) => ({ _oid: uuid(), type: 'attachment', content: { type, data }, keyboard: [] });
 blocks.card = ({ title, subtitle = '', image = null, keyboard = [], default_action = null }) => ({ _oid: uuid(), type: 'card', content: { title, subtitle, image }, default_action, is_hidden: false, keyboard });

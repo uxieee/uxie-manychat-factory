@@ -29,6 +29,7 @@ the addresses. System merge tags (`{{first_name}}`, `{{last_name}}`, `{{email}}`
     { "text": "First", "buttons": [] },
     { "delay": 3, "typing": true },                                          // seconds
     { "attachment": { "type": "image", "data": "<the object upload_attachment returned>" } },
+                   // type: image | video | gif | pdf | audio | file — pdf reaches the wire as "file"
     { "cards": [ { "title": "Card one", "subtitle": "sub",
                    "image": "<the object upload_attachment returned>",       // NOT a URL
                    "url": "https://example.com",                             // tap-the-card action
@@ -51,10 +52,23 @@ the addresses. System merge tags (`{{first_name}}`, `{{last_name}}`, `{{email}}`
 Text ≤ 2000 characters (server); over 1000 on Instagram is blocked — that is Meta's own DM limit, so
 the API stores it and the send fails.
 
-**Images must be uploaded first.** `upload_attachment` returns an object carrying `caid`; pass that
-object, not a URL. ManyChat refuses a URL image with `Attachment without caid` in every shape,
-including the `external_image` form its own exporter emits. Live-proven 2026-09-03 for both a
-standalone attachment block and a card image.
+**Every attachment must be uploaded first.** `upload_attachment` returns an object carrying `caid`;
+pass that object, not a URL. ManyChat refuses a URL image with `Attachment without caid` in every
+shape, including the `external_image` form its own exporter emits. Live-proven 2026-09-03 for a
+standalone attachment block and a card image, and for image, video, gif and pdf uploads.
+
+**Pass `node` to `upload_attachment`.** The builder puts a `dest` field on the upload decided by
+(node type, attachment type), and it is not cosmetic: only `dest=pdf` makes the server generate the
+`preview` an Instagram PDF block needs. Proven 2026-09-03 by differential — same bytes, same field
+name, `preview` present only with `dest=pdf`. The ledger refuses a preview-less Instagram PDF
+(`IG_PDF_NEEDS_PREVIEW`).
+
+**A video and a PDF both come back `type: "file"`.** That is correct, not a failure: the builder's
+Parser re-derives Video from `data.mime` starting `video/`, and PDF from `application/pdf`. The
+account's own `app.attachment_policy` (GET `/dashboard/getData`) is the authority on what each
+channel accepts — `upload_attachment` reads it and refuses a wrong extension or an oversized file
+before sending. On Instagram: image `gif/jpg/jpeg/png` ≤ 8 MB, video `mp4/ogg/webm/mov/avi` ≤ 25 MB,
+audio `m4a/wav/aac` ≤ 25 MB, file **pdf only** ≤ 25 MB.
 
 ### `actions` — an action group
 ```jsonc
@@ -118,7 +132,7 @@ Beyond the shorthands above (`add_tag`, `remove_tag`, `set_field`, `unset_field`
 `external_request`, `notify_admin`, `start_flow`):
 
 ```jsonc
-{ "add_to_sequence": 55 }, { "remove_from_sequence": 55 },
+{ "add_to_sequence": 55 }, { "remove_from_sequence": "Welcome drip" },   // id, or a NAME resolved via list_sequences
 { "open_conversation": true }, { "close_conversation": true },
 { "assign_conversation": { "user_id": 9 } },        // or { "group_id": 3 }
 { "set_optin": "email" },                            // email|sms|instagram|telegram|tiktok

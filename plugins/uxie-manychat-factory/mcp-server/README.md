@@ -11,7 +11,7 @@ source maps (bundle 490, 2026-09-02) and 20 live probe sessions, held in the
 `manychat-internal-api-research` corpus (the source of truth for every wire shape; when a tool
 proves the corpus wrong, the corpus page is corrected in the same change).
 
-**Status: 0.2.0 — 34 tools, both rails LIVE-PROVEN 2026-09-03 through a real stdio session on the
+**Status: 0.3.0 — 35 tools, both rails LIVE-PROVEN 2026-09-03 through a real stdio session on the
 committed bundle against a client account.** Ledger at the bottom.
 
 ## Credential model

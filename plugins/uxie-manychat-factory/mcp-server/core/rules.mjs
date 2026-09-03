@@ -30,6 +30,10 @@ export const SYSTEM_FIELDS = ['first_name', 'last_name', 'full_name', 'email', '
 export const STATIC_FIELDS = ['tag', 'widget', 'ads_growth_tool', 'opt_in_through_api', 'one_time_notification', 'one_time_notification_optin', 'sequence', 'system_current_datetime', 'smart_segment'];
 export const DELAY_UNITS = ['minutes', 'hours', 'days'];
 export const IG_ALLOWED_BLOCKS = ['text', 'attachment', 'quick_reply', 'question', 'delay', 'card', 'cards', 'dynamic', 'otn_request'];
+// AttachmentBlockAttachmentType (common/builder/entityInterfaces.ts). `pdf` and `audio` are
+// builder-side display types: the exporter downgrades pdf -> file, and the server stores an
+// uploaded video as file too — the Parser re-derives VIDEO/PDF from data.mime on the way back.
+// So the WIRE union is these five; `pdf`/`audio` are accepted by upload_attachment, not here.
 export const ATTACHMENT_TYPES = ['image', 'video', 'file', 'gif', 'external_image'];
 export const DYNAMIC_METHODS = ['get', 'post', 'put', 'delete'];
 export const INTEGRATION_ACTIONS = ['hubspot', 'convertkit', 'chatgpt', 'claude', 'deepseek', 'google_sheets', 'active_campaign', 'klaviyo', 'mailchimp'];
@@ -117,6 +121,7 @@ export const RULES = Object.freeze({
   // server side of these was not probed (an action missing its key was never published); the tool
   // blocks them anyway because an action without its subject cannot do anything.
   ACTION_TAG_REQUIRED: { layer: 'C', serverEnforced: null, clientMessage: 'Please select or create a tag', toolBlocks: true },
+  ACTION_SEQUENCE_WRONG: { layer: 'S', serverEnforced: true, serverMessage: 'Wrong sequence', note: 'PROVEN 2026-09-03: flow/publish rejects an add_to_sequence whose sequence_id does not exist on the account (probed with id 1). The server validates the id, so the ledger does not have to — but list_sequences is how you find a real one.' },
   ACTION_SEQUENCE_REQUIRED: { layer: 'C', serverEnforced: null, clientMessage: 'Please select a sequence', toolBlocks: true },
   ACTION_FIELD_REQUIRED: { layer: 'C', serverEnforced: null, clientMessage: 'Please select a custom user field to set', toolBlocks: true },
   ACTION_FIELD_VALUE_REQUIRED: { layer: 'C', serverEnforced: null, clientMessage: 'Please enter a value for the custom user field', toolBlocks: true, note: 'the UI string is a translation key; the server accepts an empty value (it stores it)' },
@@ -134,6 +139,7 @@ export const RULES = Object.freeze({
   ATTACHMENT_TYPE_INVALID: { layer: 'C', serverEnforced: null, clientMessage: 'attachment content.type must be image, video, file, gif or external_image', toolBlocks: true },
   ATTACHMENT_NEEDS_CAID: { layer: 'S', serverEnforced: true, serverMessage: 'Attachment without caid', note: 'PROVEN 2026-09-03: an image ManyChat did not store is refused — the external_image shape its own exporter emits, a {type,url} object and a bare URL all fail. Upload it first (upload_attachment -> POST /content/upload) and pass the returned object, which carries caid.' },
   DYNAMIC_PAYLOAD_NOT_STRING: { layer: 'S', serverEnforced: true, serverMessage: 'Something went wrong', note: 'PROVEN 2026-09-03: a dynamic block whose payload is an OBJECT fails; a JSON STRING or null is accepted. Same rule as external_request.' },
+  IG_PDF_NEEDS_PREVIEW: { layer: 'C', serverEnforced: false, clientMessage: 'This PDF was uploaded without a preview', toolBlocks: true, note: 'PROVEN 2026-09-03 by differential (same bytes, same field name, only `dest` varies): POST /content/upload returns a `preview` object ONLY when the multipart carries dest=pdf. Without it the builder logs PdfPreviewNotReceivedError for a PDF attachment on an Instagram node (Batch/Parser.js) and the block has no thumbnail. Upload with upload_attachment type:"pdf" node:"instagram", which sends dest=pdf.' },
   ATTACHMENT_URL_REQUIRED: { layer: 'C', serverEnforced: null, clientMessage: 'Please specify image URL', toolBlocks: true, note: 'external_image needs content.data.url; uploaded types need the object /content/upload returned' },
   CARDS_EMPTY: { layer: 'C', serverEnforced: null, clientMessage: 'Please create at least one card', toolBlocks: true },
   CARD_TITLE_REQUIRED: { layer: 'C', serverEnforced: null, clientMessage: 'Please enter a title', toolBlocks: true },
@@ -251,6 +257,11 @@ export function validateBatch({ contents, rootContent, context = {}, allowUiWarn
           if (!ATTACHMENT_TYPES.includes(t)) F.add('ATTACHMENT_TYPE_INVALID', mw, { detail: `content.type "${t}"` });
           else if (!m.content?.data) F.add('ATTACHMENT_URL_REQUIRED', mw);
           else if (m.content.data.caid == null) F.add('ATTACHMENT_NEEDS_CAID', mw, { detail: t === 'external_image' ? 'external_image carries a url but no caid' : 'the attachment data has no caid' });
+          // A PDF reaches the wire as type "file" + mime application/pdf. On an Instagram node the
+          // builder expects data.preview, which only a dest=pdf upload produces.
+          if ((c.type === 'instagram' || context.channel === 'instagram') && m.content?.data?.mime === 'application/pdf' && !m.content.data.preview) {
+            F.add('IG_PDF_NEEDS_PREVIEW', mw, { detail: `"${m.content.data.title ?? 'the PDF'}" was uploaded without dest=pdf, so it has no preview` });
+          }
           (m.keyboard ?? []).forEach((b, j) => checkButton(b, { ...mw, button: j }));
         }
         if (m.type === 'cards') {

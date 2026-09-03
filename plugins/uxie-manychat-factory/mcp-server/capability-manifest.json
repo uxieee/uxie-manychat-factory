@@ -294,6 +294,12 @@
     "path": "/flow/getFlowData"
   },
   {
+    "tool": "list_sequences",
+    "rail": "internal",
+    "method": "GET",
+    "path": "/sequence/listSequences"
+  },
+  {
     "tool": "list_tags",
     "rail": "internal",
     "method": "GET",

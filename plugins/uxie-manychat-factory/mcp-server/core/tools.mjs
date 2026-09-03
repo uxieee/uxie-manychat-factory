@@ -10,7 +10,7 @@ import { CODES, RECONNECT, containsSecrets, fail, failureOf, ok } from './errors
 import { SessionError, readSession, sessionStatus, writeSession } from './session.mjs';
 import { makeInternalGateway, makePublicGateway } from './gateway.mjs';
 import { validateBatch, validateKeywordRules, validateWidgetData, ruleTable, POST_COVERED_AREAS, COMMENT_CONTAINS, KEYWORD_CONDITIONS, WIDGET_STATUSES, KEYWORD_STATUSES, COMMENT_TRIGGER_WIDGET_TYPES } from './rules.mjs';
-import { captionErrors, draftToBatch, duplicateOids, layoutCoordinates, publishedToBatch, summarizeContents, stripStats, uuid } from './flow-model.mjs';
+import { ATTACHMENT_BACKEND_TYPE, ATTACHMENT_UPLOAD_TYPES, ATTACHMENT_WIRE_TYPE, captionErrors, draftToBatch, duplicateOids, layoutCoordinates, publishedToBatch, summarizeContents, stripStats, uuid } from './flow-model.mjs';
 import { CompileError, compileSpec } from './build-flow.mjs';
 import { EditError, applyOps } from './edit-flow.mjs';
 import { describeEndpoint, endpoints, searchEndpoints } from './catalog.mjs';
@@ -97,7 +97,7 @@ function flowSummary(flow, { contents = true } = {}) {
 // The account facts the ledger needs to judge a batch: user tags, trigger auto-tags, fields, bot
 // fields, known flows. Fetched fresh per call (small lists; pacing applies).
 async function ledgerContext(gw, { flows = false } = {}) {
-  const out = { userTagIds: new Set(), triggerTagIds: new Set(), fieldIds: new Set(), botFieldIds: new Set(), knownFlowNs: null, tagsByName: new Map(), fieldsByName: new Map(), botFieldsByName: new Map(), warnings: [] };
+  const out = { userTagIds: new Set(), triggerTagIds: new Set(), fieldIds: new Set(), botFieldIds: new Set(), knownFlowNs: null, tagsByName: new Map(), fieldsByName: new Map(), botFieldsByName: new Map(), sequencesByName: new Map(), warnings: [] };
   const tags = await mc(gw, 'GET', '/tags/list', undefined, { query: { type: 'user' } });
   if (tags.bad) return { bad: tags.bad };
   let widgetNames = new Set();
@@ -115,6 +115,10 @@ async function ledgerContext(gw, { flows = false } = {}) {
   const gaf = await mc(gw, 'GET', '/globalFields/list', undefined, { query: { active_only: 'true' } });
   if (gaf.bad) return { bad: gaf.bad };
   for (const f of gaf.res.json.fields ?? []) { out.botFieldIds.add(Number(f.field_id)); out.botFieldsByName.set(String(f.caption ?? '').toLowerCase(), Number(f.field_id)); }
+  // Sequences: needed so {add_to_sequence:"Name"} resolves. The server refuses an unknown id with
+  // "Wrong sequence" (proven 2026-09-03), so a name that misses must fail at compile time.
+  const seqs = await mc(gw, 'GET', '/sequence/listSequences');
+  if (!seqs.bad) for (const q of seqs.res.json.sequences ?? []) out.sequencesByName.set(String(q.name ?? '').toLowerCase(), Number(q.sequence_id));
   if (flows) {
     const fl = await mc(gw, 'GET', '/cms/getFlows', undefined, { query: { path: '/', field: 'modified', order: 'desc' } });
     if (!fl.bad) out.knownFlowNs = new Set((fl.res.json.list ?? []).map((f) => f.ns));
@@ -125,6 +129,7 @@ const resolversFrom = (ctx) => ({
   tagId: (name) => { const t = ctx.tagsByName.get(String(name).toLowerCase()); return t && !t.trigger ? t.id : null; },
   fieldId: (name) => ctx.fieldsByName.get(String(name).toLowerCase()) ?? null,
   botFieldId: (name) => ctx.botFieldsByName.get(String(name).toLowerCase()) ?? null,
+  sequenceId: (name) => ctx.sequencesByName?.get(String(name).toLowerCase()) ?? null,
 });
 
 // Run the ledger; blocking findings become a VALIDATION_FAILED with the server's strings.
@@ -165,6 +170,62 @@ function verifyPublished(sent, root, flow) {
 }
 
 const MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', mp4: 'video/mp4', mov: 'video/quicktime', pdf: 'application/pdf', mp3: 'audio/mpeg' };
+
+// ── attachment uploads ────────────────────────────────────────────────────────────────
+const UPLOAD_NODE_TYPES = ['instagram', 'telegram', 'whatsapp', 'sms', 'tiktok', 'default'];
+
+// getAttachmentDestination (AttachmentBlock.tsx): the `dest` the builder puts on the multipart,
+// decided by (node type, attachment type). null = the builder sends no dest.
+function uploadDest(node, type, telegramVideoNote) {
+  switch (node) {
+    case 'sms': return type === 'image' || type === 'gif' ? 'mms' : null;
+    case 'telegram':
+      if (telegramVideoNote) return 'tg_video_note';
+      return type === 'image' || type === 'gif' ? 'tg' : 'tg_file';
+    case 'whatsapp':
+      if (type === 'image' || type === 'gif') return 'wa';
+      if (type === 'file') return 'wa_document';
+      return 'wa_file';
+    case 'instagram': return type === 'pdf' ? 'pdf' : null;
+    default: return null;
+  }
+}
+
+// app.attachment_policy from GET /dashboard/getData — the account's own per-channel extension and
+// size limits. Cached PER ACCOUNT for the life of the process (it changes with the plan, not with
+// the call); one login can reach several accounts, so a single slot would hand one account's policy
+// to another.
+const ATTACHMENT_POLICY = new Map();
+async function attachmentPolicy(gw) {
+  const key = gw.accountId();
+  if (ATTACHMENT_POLICY.has(key)) return ATTACHMENT_POLICY.get(key);
+  const { res, bad } = await mc(gw, 'GET', '/dashboard/getData');
+  if (bad) return null;                       // policy is a guard, never a blocker on its own
+  const policy = res.json?.['app.attachment_policy'] ?? {};
+  ATTACHMENT_POLICY.set(key, policy);
+  return policy;
+}
+
+// Refuse before the upload when the account's policy already says no. Returns a failure or null.
+function policyCheck(policy, node, type, ext, bytes) {
+  if (!policy || !node) return null;
+  const channel = policy[node];
+  if (!channel) return null;                  // no published policy for this channel
+  const bucket = channel[ATTACHMENT_BACKEND_TYPE[type]];
+  if (!bucket) {
+    return fail(CODES.VALIDATION_FAILED, `this account's ${node} channel accepts no ${ATTACHMENT_BACKEND_TYPE[type]} attachments`,
+      `Its policy lists: ${Object.keys(channel).join(', ')}. Pick a type the channel accepts.`, { policy: channel });
+  }
+  if (bucket.extensions?.length && !bucket.extensions.includes(ext)) {
+    return fail(CODES.VALIDATION_FAILED, `.${ext} is not an accepted ${ATTACHMENT_BACKEND_TYPE[type]} extension on ${node}`,
+      `The account's policy allows: ${bucket.extensions.join(', ')}. Convert the file or change the type.`, { policy: bucket });
+  }
+  if (bucket.max_bytes != null && bytes > bucket.max_bytes) {
+    return fail(CODES.VALIDATION_FAILED, `the file is ${bytes} bytes; ${node} caps a ${ATTACHMENT_BACKEND_TYPE[type]} at ${bucket.max_bytes}`,
+      'Shrink the file and upload again. Nothing was sent.', { policy: bucket });
+  }
+  return null;
+}
 
 const CONFIRM = (what, preview) => fail(CODES.CONFIRM_REQUIRED, `${what} — nothing was sent.`, 'Review data.preview, then repeat the same call with confirm:true. Only do so if the user asked for this in THIS session.', { preview });
 
@@ -503,6 +564,23 @@ export const TOOLS = [
     }),
   },
   {
+    name: 'list_sequences',
+    description: describe('list_sequences', 'List the account\'s sequences (sequence/listSequences) with their ids, message counts and subscriber counts. This is where an add_to_sequence / remove_from_sequence id comes from: flow/publish refuses an id the account does not have with "Wrong sequence". build_flow also accepts a sequence by NAME and resolves it here.'),
+    inputSchema: schema({ accountId: z.string().optional() }),
+    capabilities: [{ rail: 'internal', method: 'GET', path: '/sequence/listSequences' }],
+    handler: async (args, deps) => guard(async () => {
+      const gw = deps.makeGw({ accountId: args.accountId });
+      const { res, bad } = await mc(gw, 'GET', '/sequence/listSequences');
+      if (bad) return bad;
+      const list = res.json?.sequences ?? [];
+      return ok({
+        count: list.length,
+        sequences: list.map((q) => ({ sequence_id: q.sequence_id, name: q.name, status: q.status, messages: q.messages, subscribers: q.subscribers })),
+        ...(list.length ? {} : { note: 'this account has no sequences — an add_to_sequence action cannot be published until one exists (the builder creates them under Automation -> Sequences).' }),
+      });
+    }),
+  },
+  {
     name: 'list_tags',
     description: describe('list_tags', 'List user tags (tags/list?type=user) and mark the trigger auto-tags ("Post or Reel Comments #N") that add_tag actions cannot use.'),
     inputSchema: schema({ accountId: z.string().optional() }),
@@ -669,12 +747,20 @@ export const TOOLS = [
   },
   {
     name: 'upload_attachment',
-    description: describe('upload_attachment', 'Upload a local image, video, file or gif to the account (POST /content/upload, multipart) and return the attachment object a message block needs. Pass that object back as blocks:[{attachment:{type,data}}]. For an image you can already reach by URL, skip this and use {image_url} — ManyChat sends it as an external image with no upload.'),
-    inputSchema: schema({ path: z.string().describe('absolute path to the local file'), type: z.string().default('image').describe('image | video | file | gif'), accountId: z.string().optional() }),
+    description: describe('upload_attachment', 'Upload a local image, video, gif, pdf, audio or other file to the account (POST /content/upload, multipart) and return the attachment object a message block needs. Pass that object back as blocks:[{attachment:{type,data}}]. There is no URL shortcut: ManyChat refuses an image it did not store ("Attachment without caid"), so every image goes through here first. Pass `node` (the channel node the block will live on) so the upload carries the `dest` the builder sends — an Instagram PDF without it comes back with no preview.'),
+    inputSchema: schema({
+      path: z.string().describe('absolute path to the local file'),
+      type: z.string().default('image').describe('image | video | gif | pdf | audio | file — the BUILDER type; pdf and video both reach the wire as "file"'),
+      node: z.string().optional().describe('the node the block will live on: instagram | telegram | whatsapp | sms | default. Decides the `dest` field and which attachment policy applies.'),
+      telegramVideoNote: z.boolean().default(false).describe('Telegram only: upload as a video note (12 MB cap)'),
+      accountId: z.string().optional(),
+    }),
     capabilities: [{ rail: 'internal', method: 'POST', path: '/content/upload' }],
     handler: async (args, deps) => guard(async () => {
       const type = String(args.type ?? 'image');
-      if (!['image', 'video', 'file', 'gif'].includes(type)) return fail(CODES.VALIDATION_FAILED, 'type must be image, video, file or gif (value withheld)', 'Pass one of the four.');
+      if (!ATTACHMENT_UPLOAD_TYPES.includes(type)) return fail(CODES.VALIDATION_FAILED, `type must be one of ${ATTACHMENT_UPLOAD_TYPES.join(', ')} (value withheld)`, 'Pass one of those.');
+      const node = args.node == null ? null : String(args.node).toLowerCase();
+      if (node && !UPLOAD_NODE_TYPES.includes(node)) return fail(CODES.VALIDATION_FAILED, `node must be one of ${UPLOAD_NODE_TYPES.join(', ')}`, 'Name the channel node the block will live on, or omit it.');
       let bytes;
       try { bytes = readFileSync(args.path); }
       catch (e) { return fail(CODES.VALIDATION_FAILED, `cannot read ${args.path}: ${e.code ?? e.message}`, 'Pass an absolute path to a readable local file.'); }
@@ -684,18 +770,40 @@ export const TOOLS = [
       // '1', …). Sending it as `file` returned `Uploaded file is not an image`, which reads like a
       // bad file and is really a field-name mismatch. The MIME type must be set on the part too.
       const name = args.path.split('/').pop();
-      const mime = MIME[name.split('.').pop()?.toLowerCase()] ?? (type === 'image' ? 'image/png' : 'application/octet-stream');
+      const ext = name.split('.').pop()?.toLowerCase() ?? '';
+      const mime = MIME[ext] ?? (type === 'image' ? 'image/png' : 'application/octet-stream');
+
+      // The account's OWN policy decides what each channel accepts — never guess it.
+      const policy = await attachmentPolicy(gw);
+      const check = policyCheck(policy, node, type, ext, bytes.length);
+      if (check) return check;
+
       const form = new FormData();
       form.append('0', new Blob([bytes], { type: mime }), name);
+      // The builder sets `dest` from (nodeType, attachmentType) — AttachmentBlock.tsx
+      // getAttachmentDestination + attachmentActions.js `body.set('dest', …)`. It is not cosmetic:
+      // PROVEN 2026-09-03 by differential that only dest=pdf makes the server generate the PDF
+      // preview an Instagram PDF block needs.
+      const dest = uploadDest(node, type, args.telegramVideoNote === true);
+      if (dest) form.set('dest', dest);
+
       const { res, bad } = await mc(gw, 'POST', '/content/upload', form);
       if (bad) return bad;
       const attachment = res.json?.attachment;
       if (!attachment) return fail(CODES.ENGINE_ABORT, 'upload answered 200 without an attachment', 'Inspect data.response.', { response: res.json });
+      // What the server STORED, not what we asked for: an mp4 and a pdf both come back type "file",
+      // and the builder re-derives Video/PDF from data.mime. Report the mismatch rather than hide it.
+      const warnings = [];
+      if (type === 'pdf' && !attachment.preview) warnings.push('this PDF has no `preview` — an Instagram PDF block needs one. Re-upload with node:"instagram" so the request carries dest=pdf.');
+      if (attachment.type !== type) warnings.push(`the server stored this as type "${attachment.type}" (mime ${attachment.mime ?? 'n/a'}); the builder re-derives "${type}" from the mime on read-back, so the block is correct.`);
       return ok({
         attachment,
         type,
+        wireType: ATTACHMENT_WIRE_TYPE[type] ?? type,
+        dest: dest ?? null,
+        warnings,
         useAs: {
-          block: { attachment: { type, data: attachment } },
+          block: { attachment: { type: ATTACHMENT_WIRE_TYPE[type] ?? type, data: attachment } },
           cardImage: attachment,
         },
         note: 'pass useAs.block into a blocks list, or useAs.cardImage as a card\'s `image`. ManyChat refuses an image it did not store: a URL-only block fails with "Attachment without caid".',

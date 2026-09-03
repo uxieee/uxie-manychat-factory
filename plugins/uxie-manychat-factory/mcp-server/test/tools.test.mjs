@@ -76,7 +76,7 @@ test('build_flow dryRun returns the compiled batch and ledger without touching t
   const calls = [];
   const gw = { accountId: () => 'fb1', call: async (method, path) => {
     calls.push(`${method} ${path}`);
-    const j = { '/tags/list': { tags: [{ tag_id: 1, tag_name: 'Lead' }, { tag_id: 2, tag_name: 'Post or Reel Comments #4' }] }, '/growth-tools/list': { widgets: [] }, '/customFields/list': { fields: [{ field_id: 10, caption: 'Offer' }] }, '/globalFields/list': { fields: [] }, '/cms/getFlows': { list: [] } }[path];
+    const j = { '/tags/list': { tags: [{ tag_id: 1, tag_name: 'Lead' }, { tag_id: 2, tag_name: 'Post or Reel Comments #4' }] }, '/growth-tools/list': { widgets: [] }, '/customFields/list': { fields: [{ field_id: 10, caption: 'Offer' }] }, '/globalFields/list': { fields: [] }, '/sequence/listSequences': { sequences: [{ sequence_id: 77, name: 'Welcome drip' }] }, '/cms/getFlows': { list: [] } }[path];
     if (!j) throw new Error(`unexpected ${method} ${path}`);
     return { status: 200, json: { ...j, state: true } };
   } };
@@ -132,4 +132,49 @@ test('edit_flow refuses a flow with nothing published, and never publishes on dr
   assert.equal(r.code, CODES.VALIDATION_FAILED);
   assert.match(r.detail, /no published content/);
   assert.ok(!calls.some((c) => c.includes('publish')));
+});
+
+// REGRESSION 0.3.0 — an Instagram PDF was uploaded WITHOUT the `dest` the builder sends, so the
+// server never generated the preview the builder needs (proven live by differential 2026-09-03).
+// These fail if the dest matrix or the policy guard is dropped again.
+test('upload_attachment sends the builder\'s `dest` and enforces the account attachment policy', async () => {
+  const { writeFileSync, mkdtempSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const dir = mkdtempSync(join(tmpdir(), 'mc-upload-'));
+  const pdf = join(dir, 'doc.pdf'); writeFileSync(pdf, 'x');
+  const mp4 = join(dir, 'clip.mp4'); writeFileSync(mp4, 'x');
+
+  const POLICY = { instagram: { file: { max_bytes: 26214400, extensions: ['pdf'] }, image: { max_bytes: 8388608, extensions: ['gif', 'jpg', 'jpeg', 'png'] }, video: { max_bytes: 26214400, extensions: ['mp4', 'mov'] } } };
+  const seen = [];
+  const gw = { accountId: () => 'fb1', call: async (method, path, body) => {
+    if (path === '/dashboard/getData') return { status: 200, json: { 'app.attachment_policy': POLICY, state: true } };
+    if (path === '/content/upload') {
+      seen.push({ dest: body.get('dest') ?? null, hasFile: body.has('0') });
+      return { status: 200, json: { attachment: { type: 'file', caid: 1, mime: 'application/pdf', title: 'doc.pdf', preview: { status: 'success' } }, state: true } };
+    }
+    throw new Error(`unexpected ${method} ${path}`);
+  } };
+  const up = TOOLS.find((t) => t.name === 'upload_attachment');
+  const deps = { state: {}, makeGw: () => gw };
+
+  const okPdf = await up.handler({ path: pdf, type: 'pdf', node: 'instagram' }, deps);
+  assert.equal(okPdf.ok, true, JSON.stringify(okPdf));
+  assert.deepEqual(seen.at(-1), { dest: 'pdf', hasFile: true }, 'an Instagram PDF carries dest=pdf');
+  assert.equal(okPdf.data.wireType, 'file', 'pdf reaches the wire as file');
+
+  // Instagram's file bucket is pdf-only: an mp4 uploaded as a file is refused BEFORE any send.
+  const before = seen.length;
+  const badFile = await up.handler({ path: mp4, type: 'file', node: 'instagram' }, deps);
+  assert.equal(badFile.code, CODES.VALIDATION_FAILED, JSON.stringify(badFile));
+  assert.match(badFile.remediation, /allows: pdf/);
+  assert.equal(seen.length, before, 'nothing was uploaded');
+
+  // The dest matrix is per (node, type), not per type alone.
+  await up.handler({ path: mp4, type: 'video', node: 'telegram' }, deps);
+  assert.equal(seen.at(-1).dest, 'tg_file');
+  await up.handler({ path: mp4, type: 'video', node: 'whatsapp' }, deps);
+  assert.equal(seen.at(-1).dest, 'wa_file');
+  await up.handler({ path: mp4, type: 'video', node: 'instagram' }, deps);
+  assert.equal(seen.at(-1).dest, null, 'only a PDF gets a dest on Instagram');
 });

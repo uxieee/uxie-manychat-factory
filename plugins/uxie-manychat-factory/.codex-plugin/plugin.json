@@ -1,6 +1,6 @@
 {
   "name": "uxie-manychat-factory",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "ManyChat toolkit skills: design and build Instagram automations through the uxie-manychat-mcp server (flows, triggers, tags, fields; draft-first). The MCP server is configured separately in ~/.codex/config.toml (see README).",
   "author": {
     "name": "Xander Roque",
@@ -22,7 +22,7 @@
   "interface": {
     "displayName": "Uxie ManyChat Factory",
     "shortDescription": "ManyChat operator skills for Codex",
-    "longDescription": "Skills that turn Codex into a competent ManyChat operator \u2014 design and build Instagram comment-to-DM and keyword automations, capture leads into email or a CRM, and keep everything in draft until you say go. The skills call the uxie-manychat-mcp server, which you configure once in ~/.codex/config.toml (see the plugin README).",
+    "longDescription": "Skills that turn Codex into a competent ManyChat operator — design and build Instagram comment-to-DM and keyword automations, capture leads into email or a CRM, and keep everything in draft until you say go. The skills call the uxie-manychat-mcp server, which you configure once in ~/.codex/config.toml (see the plugin README).",
     "developerName": "Xander Roque",
     "category": "Productivity",
     "defaultPrompt": [

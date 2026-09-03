@@ -1,5 +1,5 @@
 {
- "generated": "2026-09-02",
+ "generated": "2026-09-03",
  "bundle": 490,
  "note": "internal rows prove the ManyChat front-end calls that path (bundle 490 source maps); proven:live rows were executed on a real account and read back (research live-*.json). public rows are the documented api.manychat.com operations. A row is NOT proof the call is safe.",
  "count": 922,
@@ -10686,8 +10686,10 @@
     "shared/api/requests/sequence/index.ts"
    ],
    "legacy": false,
+   "coveredBy": [
+    "list_sequences"
+   ],
    "proven": "source",
-   "coveredBy": [],
    "kind": "read"
   },
   {
