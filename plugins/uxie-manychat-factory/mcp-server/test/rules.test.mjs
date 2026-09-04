@@ -180,3 +180,20 @@ test('the ledger refuses a preview-less PDF on an Instagram node, and passes one
   assert.equal(without.ok, false);
   assert.deepEqual(without.blocking.map((f) => f.rule), ['IG_PDF_NEEDS_PREVIEW']);
 });
+
+test('an unresolved {{bot:}} / {{field:}} authoring token blocks the batch wherever it hides', () => {
+  const inText = nodes.instagram(ns, 'Priced');
+  inText.messages.push(blocks.text('The bundle is {{bot:Offer Price - Real Estate}}.'));
+  const r1 = validateBatch({ contents: [inText], rootContent: inText._oid, context: ctx });
+  assert.ok(ruleIds(r1).includes('AUTHORING_TOKEN_UNRESOLVED'), 'text block');
+  assert.ok(r1.blocking.some((x) => x.rule === 'AUTHORING_TOKEN_UNRESOLVED'), 'must block, not warn');
+
+  const inAction = nodes.actionGroup(ns, 'Stamp', [{ type: 'set_custom_field_value', field_id: 10, value: '{{field:MC Offer URL}}' }]);
+  const r2 = validateBatch({ contents: [inAction], rootContent: inAction._oid, context: ctx });
+  assert.ok(ruleIds(r2).includes('AUTHORING_TOKEN_UNRESOLVED'), 'action value');
+
+  const resolved = nodes.instagram(ns, 'Priced');
+  resolved.messages.push(blocks.text('The bundle is {{gaf_20}}.'));
+  const r3 = validateBatch({ contents: [resolved], rootContent: resolved._oid, context: ctx });
+  assert.ok(!ruleIds(r3).includes('AUTHORING_TOKEN_UNRESOLVED'), 'the resolved form is fine');
+});

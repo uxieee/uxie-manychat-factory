@@ -53132,6 +53132,7 @@ var RULES = Object.freeze({
   TARGET_NOT_IN_BATCH: { layer: "S", serverEnforced: true, serverMessage: "Content is linked to the wrong target node", note: "A target {_content_oid} must name a node in the SAME batch (live-15/19)." },
   CONTENT_TYPE_UNKNOWN: { layer: "S", serverEnforced: null, serverMessage: null, note: "setDraft stores an unknown type verbatim; the publish-side string was not captured." },
   NODE_NO_MESSAGE: { layer: "C", serverEnforced: false, clientMessage: "Please create at least one message" },
+  AUTHORING_TOKEN_UNRESOLVED: { layer: "C", serverEnforced: false, clientMessage: "Unresolved {{bot:\u2026}} / {{field:\u2026}} token", note: "build_flow rewrites {{bot:Name}} to {{gaf_<id>}} and {{field:Name}} to {{cuf_<id>}}; publish_flow and setDraft store text verbatim. A batch carrying the authoring form publishes clean, reads back clean, and sends the literal braces to a real contact (caught live 2026-09-05 on a price line). A stored authoring token is never correct.", toolBlocks: true },
   TEXT_REQUIRED: { layer: "S+C", serverEnforced: true, serverMessage: "Text required", clientMessage: "Please add text or remove the text block" },
   TEXT_OVER_2000: { layer: "S", serverEnforced: true, serverMessage: "Provided text is longer than 2000 symbols" },
   TEXT_OVER_1000: { layer: "C", serverEnforced: false, clientMessage: "Text must be less than 1000 characters long", note: "Instagram cap in the UI; the server accepted 1001 (live-08)." },
@@ -53286,6 +53287,21 @@ var isUrl = (s) => {
 };
 var targetOid = (t) => t && typeof t === "object" ? t._content_oid ?? null : null;
 var hasContentId = (t) => t && typeof t === "object" && t.content_id != null;
+function* walkStrings(value, path = "") {
+  if (typeof value === "string") {
+    yield [path, value];
+    return;
+  }
+  if (!value || typeof value !== "object") return;
+  if (Array.isArray(value)) {
+    for (const [i, v] of value.entries()) yield* walkStrings(v, path + "[" + i + "]");
+    return;
+  }
+  for (const [k, v] of Object.entries(value)) {
+    if (k === "stats") continue;
+    yield* walkStrings(v, path ? path + "." + k : k);
+  }
+}
 function validateBatch({ contents, rootContent, context = {}, allowUiWarnings = false }) {
   const F = new Findings({ allowUiWarnings });
   const list = Array.isArray(contents) ? contents : [];
@@ -53499,6 +53515,10 @@ function validateBatch({ contents, rootContent, context = {}, allowUiWarnings = 
       if (c.shift_time && !DELAY_UNITS.includes(unit)) F.add("DELAY_UNIT_INVALID", where, { detail: `unit "${unit}"` });
       if (c.shift_time && !(Number(c.shift_time.value) > 0)) F.add("DELAY_VALUE_REQUIRED", where);
       if (c.target) checkTarget(c.target, { ...where, key: "target" });
+    }
+    for (const [path, str] of walkStrings(c)) {
+      const m = str.match(/\{\{\s*(bot|field):[^}]*\}\}/);
+      if (m) F.add("AUTHORING_TOKEN_UNRESOLVED", { ...where, key: path }, { detail: m[0] });
     }
     if (c.type === "goto") {
       const ns = c.target?.flow_ns;
@@ -54612,6 +54632,46 @@ async function readFlow(gw, ns) {
   if (!res.json?.flow) return { bad: fail(CODES.NOT_FOUND, `no flow ${ns} on this account`, "Check the ns with list_flows.") };
   return { flow: res.json.flow };
 }
+async function confirmGotoTargets(gw, ctx, contents) {
+  if (!ctx?.knownFlowNs) return;
+  const missing = /* @__PURE__ */ new Set();
+  for (const c of contents ?? []) {
+    const d = c?.data ?? c;
+    const ns = d?.target?.flow_ns;
+    if ((d?.type ?? c?.type) === "goto" && ns && !ctx.knownFlowNs.has(ns)) missing.add(ns);
+  }
+  for (const ns of missing) {
+    const { res, bad } = await mc(gw, "GET", "/flow/getFlowData", void 0, { query: { ns } });
+    if (!bad && res.json?.flow?.ns === ns) ctx.knownFlowNs.add(ns);
+  }
+}
+function resolveAuthoringTokens(contents, ctx) {
+  const unresolved = [];
+  let rewritten = 0;
+  const sub = (str) => str.replace(/\{\{\s*(bot|field):([^}]+?)\s*\}\}/g, (whole, kind, name) => {
+    const key = String(name).trim().toLowerCase();
+    const id = kind === "bot" ? ctx.botFieldsByName.get(key) : ctx.fieldsByName.get(key);
+    if (id == null) {
+      unresolved.push({ token: whole, kind: kind === "bot" ? "bot field" : "custom field", name: String(name).trim() });
+      return whole;
+    }
+    rewritten++;
+    return kind === "bot" ? "{{gaf_" + id + "}}" : "{{cuf_" + id + "}}";
+  });
+  const walk = (v) => {
+    if (typeof v === "string") return sub(v);
+    if (Array.isArray(v)) return v.map(walk);
+    if (v && typeof v === "object") {
+      const o = {};
+      for (const [k, x] of Object.entries(v)) o[k] = walk(x);
+      return o;
+    }
+    return v;
+  };
+  const out = walk(contents);
+  return { contents: out, rewritten, unresolved };
+}
+var tokenRefusal = (tok) => tok.unresolved.length ? fail(CODES.VALIDATION_FAILED, `batch carries ${tok.unresolved.length} authoring token(s) naming something that is not on this account: ${tok.unresolved.map((u) => `${u.token} (no ${u.kind} "${u.name}")`).join(", ")}`, "Create the field first, or write the resolved {{gaf_<id>}} / {{cuf_<id>}} form.") : null;
 var TRIGGER_TAG_NAME = /^(Post or Reel Comments|Story Reply|Live Comments|Share to Story|Story Mention)( #\d+)?$/i;
 var widgetSummary = (w) => ({
   widget_id: w.widget_id,
@@ -54917,6 +54977,7 @@ var TOOLS = [
       }
       const ctx = await ledgerContext(gw, { flows: true });
       if (ctx.bad) return ctx.bad;
+      await confirmGotoTargets(gw, ctx, contents);
       const result = validateBatch({ contents, rootContent: root, context: { ...ctx, commentTriggerAttached: attached ?? false, channel: "instagram" }, allowUiWarnings: args.allowUiWarnings === true });
       return ok({ ...result, commentTriggerAttached: attached ?? false, ...args.rules ? { rules: ruleTable() } : {} });
     })
@@ -54945,10 +55006,17 @@ var TOOLS = [
       contents = contents.map((c) => ({ ...stripStats(c), namespace: c.namespace ?? args.ns }));
       const dup = duplicateOids(contents);
       if (dup.length) return fail(CODES.VALIDATION_FAILED, `batch carries duplicate _oids: ${dup.map((d) => `${d.oid}\xD7${d.count}`).join(", ")}`, 'Mint a fresh _oid per node (duplicates corrupt the flow; the server answers "Something went wrong").');
+      const rawToken = JSON.stringify(contents).match(/\{\{\\?\s*(bot|field):[^}"]*\}\}/);
+      if (args.skipValidation && rawToken) return fail(CODES.VALIDATION_FAILED, `batch still carries the authoring token ${rawToken[0]}; skipValidation bypasses the resolver that rewrites it`, "Publish without skipValidation so {{bot:Name}} / {{field:Name}} resolve, or write the {{gaf_<id>}} / {{cuf_<id>}} form yourself.");
       let ledger = null;
       if (!args.skipValidation) {
         const ctx = await ledgerContext(gw, { flows: true });
         if (ctx.bad) return ctx.bad;
+        const tok = resolveAuthoringTokens(contents, ctx);
+        const tokBad = tokenRefusal(tok);
+        if (tokBad) return tokBad;
+        contents = tok.contents;
+        await confirmGotoTargets(gw, ctx, contents);
         ledger = validateBatch({ contents, rootContent: root, context: { ...ctx, commentTriggerAttached: summary.triggers.commentTriggerAttached, channel: "instagram" }, allowUiWarnings: args.allowUiWarnings === true });
         const refusal = ledgerRefusal(ledger, "publish");
         if (refusal) return refusal;
@@ -55032,6 +55100,7 @@ var TOOLS = [
         if (r.bad) return r.bad;
         attached = attached || flowSummary(r.flow, { contents: false }).triggers.commentTriggerAttached;
       }
+      await confirmGotoTargets(gw, ctx, compiled.contents);
       const ledger = validateBatch({ contents: compiled.contents, rootContent: compiled.root, context: { ...ctx, commentTriggerAttached: attached, channel: "instagram" }, allowUiWarnings: args.allowUiWarnings === true });
       const refusal = ledgerRefusal(ledger, args.publish === false ? "the draft (on a later publish)" : "publish");
       const layout = layoutCoordinates(compiled.contents, compiled.root);
@@ -55376,6 +55445,7 @@ var TOOLS = [
       }
       let ledger = null;
       if (!args.skipValidation) {
+        await confirmGotoTargets(gw, ctx, edited.contents);
         ledger = validateBatch({ contents: edited.contents, rootContent: edited.root, context: { ...ctx, commentTriggerAttached: summary.triggers.commentTriggerAttached, channel: "instagram" }, allowUiWarnings: args.allowUiWarnings === true });
         const refusal = ledgerRefusal(ledger, "the edited flow");
         if (refusal) return { ...refusal, data: { ...refusal.data, summary: edited.summary } };
@@ -55606,6 +55676,11 @@ async function draftWrite(op, args, deps) {
     let ledger = null;
     const ctx = await ledgerContext(gw, { flows: true });
     if (ctx.bad) return ctx.bad;
+    const tok = resolveAuthoringTokens(contents, ctx);
+    const tokBad = tokenRefusal(tok);
+    if (tokBad) return tokBad;
+    if (tok.rewritten) contents.splice(0, contents.length, ...tok.contents);
+    await confirmGotoTargets(gw, ctx, contents);
     ledger = validateBatch({ contents, rootContent: root, context: { ...ctx, commentTriggerAttached: flowSummary(r.flow, { contents: false }).triggers.commentTriggerAttached, channel: "instagram" }, allowUiWarnings: args.allowUiWarnings === true });
     if (!args.skipValidation) {
       const refusal = ledgerRefusal(ledger, "a later publish");

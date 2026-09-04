@@ -201,3 +201,78 @@ block produced two refusals the corpus did not know, both now in the table above
 
 The server reports **one** `content_node_errors` entry per call, which is why the ledger runs
 first: it names every server-enforced problem at once, keyed by caption.
+
+**2026-09-05, two findings from the quick-reply-question probe** (account `a live account`, flow
+`TEST-CAP-QR-QUESTION 2026-09-05`, no trigger, sends nothing, left in place).
+
+- **A question block CAN carry tappable reply buttons, and `build_flow` cannot author them.**
+  Set `answer_method` to `"any"` (or `"reply"`) and `answer_replies` to an array of
+  `{_oid, type: "answer", caption}`. It publishes and survives read-back, and the server confirms
+  it recognised them as buttons by adding `value: null` and a per-button `button_click_stats`
+  segment id to each, and regenerating the flow preview. **The buttons need no `target`:** tapping
+  one sets the answer and the block's own `success_target` fires. **[Superseded 2026-09-05: on a live
+  Instagram contact the tap wrote the field and `success_target` did NOT fire. Answer buttons render
+  but do not route. See the entry below.]** `build_flow`'s spec exposes
+  neither key and silently drops unknown keys inside `question`, so a spec carrying
+  `answer_replies` compiles clean and publishes a plain typed-input question. Until the spec
+  exposes them, the path is `build_flow` → `get_flow` → patch the block → `publish_flow`.
+- **`publish_flow` is not a safe partial upsert when the node you send has cross-node targets.**
+  Publishing a single node, byte-identical to what was already stored, was rejected with
+  `Content is linked to the wrong target node`, because its `success_target` and `timeout_target`
+  named nodes absent from the batch. Publishing the full node set succeeded immediately. Verified
+  both ways in sequence. **So: a node that points at another node is published with the whole
+  flow's node set, never alone.** "Unmentioned nodes survive" holds only for nodes with no
+  outgoing targets.
+
+**2026-09-05, the rule the probe could not find.** The probe above proved a question block accepts
+`answer_replies`, but its question saved nothing. Building six real qualifiers found the rest of
+it: **when a question saves to a custom field (`adapters: [{type:"save_answer_to_custom_field"}]`),
+every answer button must carry a `value` as well as a `caption`.** Without it the publish is
+refused with **`Wrong AnswerReply type for custom field.`** Proven by differential on one flow:
+`{type:"answer", caption}` refused; `{type:"answer", caption, value}` accepted; dropping the
+adapter instead also accepted, which confirms the field is what triggers the requirement.
+`{type:"content", ...}` is refused with the same string, and `answer_type:"array"` 500s the server.
+The `value` is what lands in the field and the `caption` is what the contact sees, so they may
+differ. Set both.
+
+Two smaller notes from the same build. `publish_flow` needs the node's own `data` object passed
+through **verbatim** plus `content_id`/`caption`/`type`/`namespace`: rebuilding a node from a
+whitelist of keys drops `default_target_oid` on a `multi_condition` and the publish is refused with
+`default_target_oid is missing`. And `build_flow`'s `name` is stored literally, so an HTML entity
+like `&amp;` in a flow name stays `&amp;` on the canvas; pass the real character.
+
+**2026-09-05, live on a real contact: answer buttons render but do not route.** Six qualifiers built
+in the shape above (question block, `answer_method:"any"`, `answer_replies` with `caption` and
+`value`, adapter saving to a custom field) published clean and the chips rendered on Instagram.
+The contact tapped one: the value landed in the field and the flow stopped at the question.
+`success_target` never fired. Two repairs failed the same way. A `target` on each answer button
+is refused before send; `content_id` + `_content_oid` on each answer button publish with a 200
+and are **stripped on read-back**: the stored button is `{_oid, type:"answer", caption, value}` and
+nothing else. So a `type:"answer"` button cannot carry routing, and on Instagram the tap does not
+continue the block either. **The shape that routes, proven live the same day on the same account:
+a text block with `quick_replies.buttons` of `type:"content"`** (each with `_content_oid`), one
+per answer, each pointing at an `actions` node that runs `set_custom_field_value`, then the
+payoff text, then the goto. Same chips on screen, no question block. `build_flow` authors this
+directly (`quick_replies: [{caption, to}]` on a message node). The cost is the question block's
+`timeout_target`: with no question there is no built-in nudge, so a contact who never taps simply
+stops. A nudge on this shape needs a delay after the text block inside the 24h window and is
+unproven.
+
+**2026-09-05, `GOTO_FLOW_WRONG` was a false positive, now fixed in `tools.mjs`.** `/cms/getFlows`
+answers at most **24 rows** (newest modified first) and ignores `limit`, `page` and `offset`. The
+ledger built its set of known flows from that one call, so every goto to a flow older than the 24
+most recently modified was refused as "not on this account" (server string `Wrong content
+provided.`), and `build_flow` was blocked for an entire rebuild whose target flows all existed and
+were published. `confirmGotoTargets` now confirms each unlisted goto target with
+`/flow/getFlowData` before the rule runs. The same ceiling applies to `list_flows`: a flow missing
+from that list is not proof it is absent; `get_flow` by ns is.
+
+**2026-09-05, `publish_flow` ships authoring tokens literally.** `build_flow` resolves the plugin's
+name-based tokens (`{{bot:Offer Price - Marriage}}` → `{{gaf_5095350}}`, and the same for
+`{{cuf:…}}`) through the ledger's resolvers. `publish_flow` does not: it stores message text
+verbatim. So text lifted from a `build_flow` spec and republished through `publish_flow` reaches a
+real contact as the raw string `{{bot:Offer Price - Marriage}}`. It publishes clean, it reads back
+clean, and the ledger says nothing, because a literal token is valid text. Caught live on a
+customer-facing price line. **Two fixes worth making: resolve `{{bot:…}}` / `{{cuf:…}}` in
+`publish_flow` the way `build_flow` does, or fail the batch when a message body still contains one.
+A stored `{{bot:` is never correct.**

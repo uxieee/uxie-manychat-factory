@@ -8,6 +8,38 @@ The plugin ships **two manifests over one tree** — `.claude-plugin/plugin.json
 `.codex-plugin/plugin.json` (Codex). Both carry the same version, enforced by
 `scripts/check-manifest-parity.mjs`.
 
+## [0.7.0] — 2026-09-05
+
+### Fixed
+
+- **The raw-batch writers shipped authoring tokens literally.** `build_flow` resolves
+  `{{bot:Name}}` → `{{gaf_<id>}}` and `{{field:Name}}` → `{{cuf_<id>}}` through the compiler;
+  `publish_flow`, `set_flow_draft` and `patch_flow_draft` stored text verbatim, so a batch lifted
+  from a build spec published clean, read back clean, passed the ledger, and sent the literal
+  braces to a real contact. Caught live on a customer-facing price line. Those three now resolve
+  the same tokens against the account data the ledger already fetches, refuse the batch when a
+  token names a field that does not exist, and refuse rather than resolve when `skipValidation`
+  is set. New blocking rule **`AUTHORING_TOKEN_UNRESOLVED`** scans every string in every node
+  (message text, button urls, action values, question text) so `check_flow` reports one instead of
+  silently repairing it, and no other path can ship one either.
+
+- **`GOTO_FLOW_WRONG` false positive.** `/cms/getFlows` answers at most 24 rows (newest modified
+  first) and ignores `limit`/`page`/`offset`, and the ledger built its set of known flows from that
+  one call. Every goto to a flow older than the 24 most recently modified was refused as "not on
+  this account", which blocked `build_flow` for a whole rebuild whose targets all existed. The
+  ledger context now confirms each unlisted goto target with `/flow/getFlowData` before the rule
+  runs (`confirmGotoTargets`, called ahead of every `validateBatch`). Proven live: six flows that
+  were refused now build. `list_flows` has the same 24-row ceiling and its description should say
+  so; a flow missing from it is not proof it is absent.
+
+### Documented
+
+- **Answer buttons on a question block render but do not route on Instagram.** Live on a real
+  contact: the tap saved the custom field and `success_target` never fired; routing keys on
+  `type:"answer"` buttons are stripped by the server. The 2026-09-05 ledger entry that said the
+  buttons "need no target" is marked superseded. The shape that routes is a text block with
+  `quick_replies` (`type:"content"`) into `actions` nodes, which `build_flow` authors directly.
+
 ## [0.6.0] — 2026-09-04
 
 Enforcement. 0.4.0 and 0.5.0 wrote the rules down; testing showed documentation has a ceiling —

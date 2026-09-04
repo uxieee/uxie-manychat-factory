@@ -56,6 +56,7 @@ export const RULES = Object.freeze({
   TARGET_NOT_IN_BATCH: { layer: 'S', serverEnforced: true, serverMessage: 'Content is linked to the wrong target node', note: 'A target {_content_oid} must name a node in the SAME batch (live-15/19).' },
   CONTENT_TYPE_UNKNOWN: { layer: 'S', serverEnforced: null, serverMessage: null, note: 'setDraft stores an unknown type verbatim; the publish-side string was not captured.' },
   NODE_NO_MESSAGE: { layer: 'C', serverEnforced: false, clientMessage: 'Please create at least one message' },
+  AUTHORING_TOKEN_UNRESOLVED: { layer: 'C', serverEnforced: false, clientMessage: 'Unresolved {{bot:…}} / {{field:…}} token', note: 'build_flow rewrites {{bot:Name}} to {{gaf_<id>}} and {{field:Name}} to {{cuf_<id>}}; publish_flow and setDraft store text verbatim. A batch carrying the authoring form publishes clean, reads back clean, and sends the literal braces to a real contact (caught live 2026-09-05 on a price line). A stored authoring token is never correct.', toolBlocks: true },
   TEXT_REQUIRED: { layer: 'S+C', serverEnforced: true, serverMessage: 'Text required', clientMessage: 'Please add text or remove the text block' },
   TEXT_OVER_2000: { layer: 'S', serverEnforced: true, serverMessage: 'Provided text is longer than 2000 symbols' },
   TEXT_OVER_1000: { layer: 'C', serverEnforced: false, clientMessage: 'Text must be less than 1000 characters long', note: 'Instagram cap in the UI; the server accepted 1001 (live-08).' },
@@ -218,6 +219,14 @@ const hasContentId = (t) => t && typeof t === 'object' && t.content_id != null;
 
 // context: { commentTriggerAttached?: bool, userTagIds?: Set<number>, triggerTagIds?: Set<number>,
 //            fieldIds?: Set<number>, botFieldIds?: Set<number>, knownFlowNs?: Set<string>|null, channel?: 'instagram' }
+// Every string inside a node, with a dotted path, so a rule can scan wherever text may hide.
+function* walkStrings(value, path = '') {
+  if (typeof value === 'string') { yield [path, value]; return; }
+  if (!value || typeof value !== 'object') return;
+  if (Array.isArray(value)) { for (const [i, v] of value.entries()) yield* walkStrings(v, path + '[' + i + ']'); return; }
+  for (const [k, v] of Object.entries(value)) { if (k === 'stats') continue; yield* walkStrings(v, path ? path + '.' + k : k); }
+}
+
 export function validateBatch({ contents, rootContent, context = {}, allowUiWarnings = false }) {
   const F = new Findings({ allowUiWarnings });
   const list = Array.isArray(contents) ? contents : [];
@@ -419,6 +428,11 @@ export function validateBatch({ contents, rootContent, context = {}, allowUiWarn
       if (c.shift_time && !DELAY_UNITS.includes(unit)) F.add('DELAY_UNIT_INVALID', where, { detail: `unit "${unit}"` });
       if (c.shift_time && !(Number(c.shift_time.value) > 0)) F.add('DELAY_VALUE_REQUIRED', where);
       if (c.target) checkTarget(c.target, { ...where, key: 'target' });
+    }
+
+    for (const [path, str] of walkStrings(c)) {
+      const m = str.match(/\{\{\s*(bot|field):[^}]*\}\}/);
+      if (m) F.add('AUTHORING_TOKEN_UNRESOLVED', { ...where, key: path }, { detail: m[0] });
     }
 
     if (c.type === 'goto') {
